@@ -126,7 +126,7 @@ export function suggest(e) {
   if (e.plan && e.plan.manual && e.plan.sets?.length) return { sets: e.plan.sets, manual: true, note: e.plan.note || '' };
   const st = exStats(e.id);
   const last = st.last;
-  const n = e.sets || 3;
+  const n = e.sets || 2;
   if (!last) return { sets: Array.from({ length: n }, () => ({})), note: 'Première séance : trouve ta charge de travail.' };
   const lastSets = last.entry.sets.filter(s => (s.r != null) || s.t != null);
   const out = [];
@@ -161,7 +161,7 @@ export function suggest(e) {
       out.push({ w, r: r + 1 });
     }
   }
-  const note = up ? `Objectif atteint (${e.repMax} reps) → ${e.type === 'assisted' ? 'retire' : 'ajoute'} ${fmt(inc)} kg${e.equip === 'db2' ? ' par haltère (+' + fmt(inc * 2) + ' kg au total)' : ''} sur les séries concernées.` : '';
+  const note = up ? `Objectif atteint (${e.repMax} reps) → ${e.type === 'assisted' ? 'retire' : 'ajoute'} ${fmt(inc)} kg${e.equip === 'db2' ? ' par haltère (+' + fmt(inc * 2) + ' kg au total)' : e.equip === 'db2t' ? ' au total (+' + fmt(inc / 2) + ' kg par haltère)' : ''} sur les séries concernées.` : '';
   return { sets: out, note };
 }
 

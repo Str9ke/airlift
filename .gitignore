@@ -1,8 +1,8 @@
 # Données personnelles — jamais publiées
 *.xlsx
 programme.txt
-data/
-tools/
+/data/
+/tools/
 docs/seed.json
 android/app/src/main/assets/seed.json
 ANALYSE_PROGRAMME.md

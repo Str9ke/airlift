@@ -1,5 +1,11 @@
-// Persistence: localStorage + miroir natif (Android) + seed initial.
-import { PROGRAM, EXTRA, EQUIP } from './program.js';
+// Persistance : localStorage + miroir natif (Android) + synchro en ligne (sync.js) + seed initial.
+//
+// Règle d'or des mises à jour : TA configuration (exercices, ordre, jours, séries, réglages) est
+// stockée dans tes données, jamais dans le code. Une nouvelle version de l'app ne la remplace pas :
+// les évolutions passent par MIGRATIONS, exécutées une seule fois, qui ne font qu'AJOUTER
+// (ex. un nouvel exercice proposé, rangé dans « anciens exercices ») sans écraser ce que tu as modifié.
+import { PROGRAM, EXTRA, EQUIP, DEFAULT_DAYS } from './program.js';
+import * as sync from './sync.js';
 
 const KEY = 'airlift.v1';
 const native = () => (typeof window !== 'undefined' && window.AirLiftNative) || null;
@@ -14,7 +20,11 @@ export function onChange(fn) { listeners.add(fn); return () => listeners.delete(
 export function S() { return state; }
 
 function emptyState() {
-  return { version: 1, exercises: [], sessions: [], body: [], settings: { density: 'compact', theme: 'auto', breakDays: 45 }, meta: { created: new Date().toISOString() } };
+  return {
+    version: 2, exercises: [], sessions: [], body: [], days: DEFAULT_DAYS.map(d => ({ ...d })), draft: null,
+    settings: { density: 'compact', theme: 'auto', breakDays: 45, restSec: 120 },
+    meta: { created: new Date().toISOString(), updatedAt: Date.now(), migrations: [] },
+  };
 }
 
 export function normalizeExercise(e, i = 0) {
@@ -22,26 +32,45 @@ export function normalizeExercise(e, i = 0) {
   return {
     id: e.id || uid(), name: e.name || 'Exercice', category: e.category || 'Autre',
     equip: e.equip || 'machine', type: e.type || 'load',
-    inc: e.inc ?? eq.inc, sets: e.sets ?? 3,
+    inc: e.inc ?? eq.inc, sets: e.sets ?? 2,
     repMin: e.repMin ?? 8, repMax: e.repMax ?? 12, timeMin: e.timeMin ?? 20, timeMax: e.timeMax ?? 45,
     days: e.days || [], active: e.active ?? false, order: e.order ?? 1000 + i,
-    cue: e.cue || '', notes: e.notes || '', plan: e.plan || null,
+    cue: e.cue || '', notes: e.notes || '', plan: e.plan || null, img: e.img ?? null,
   };
 }
 
-function mergeProgram(st) {
+/** Première installation uniquement : applique le programme par défaut. */
+function applyDefaultProgram(st) {
   const byId = new Map(st.exercises.map(e => [e.id, e]));
   PROGRAM.forEach((p, i) => {
     const cur = byId.get(p.id);
-    if (cur) {
-      if (!st.meta.programMerged) Object.assign(cur, { ...p, name: cur.name || p.name, active: true, order: i, inc: cur.inc ?? EQUIP[p.equip].inc });
-    } else {
-      st.exercises.push(normalizeExercise({ ...p, active: true, order: i }, i));
-    }
+    if (cur) Object.assign(cur, { ...p, active: true, order: i, inc: EQUIP[p.equip].inc });
+    else st.exercises.push(normalizeExercise({ ...p, active: true, order: i }, i));
   });
-  if (!st.meta.extraMerged) EXTRA.forEach((p, i) => { if (!byId.has(p.id)) st.exercises.push(normalizeExercise({ ...p, active: false, order: 500 + i }, i)); });
-  st.meta.extraMerged = true;
-  st.meta.programMerged = true;
+  EXTRA.forEach((p, i) => { if (!byId.has(p.id)) st.exercises.push(normalizeExercise({ ...p, active: false, order: 500 + i }, i)); });
+  st.meta.programApplied = true;
+  st.meta.migrations = MIGRATIONS.map(m => m.id); // déjà inclus dans le programme par défaut
+}
+
+// Ajoute un exercice seulement s'il n'existe pas (jamais d'écrasement).
+// eslint-disable-next-line no-unused-vars
+const addIfMissing = (st, p, active = false) => { if (!st.exercises.some(e => e.id === p.id)) st.exercises.push(normalizeExercise({ ...p, active, order: 900 })); };
+
+// Évolutions futures du programme : { id: 'AAAA-MM-JJ-quoi', run(st) { addIfMissing(st, {...}) } }
+const MIGRATIONS = [];
+
+function migrate(st) {
+  st.meta = st.meta || {};
+  st.days = st.days?.length ? st.days : DEFAULT_DAYS.map(d => ({ ...d }));
+  st.settings = { ...emptyState().settings, ...(st.settings || {}) };
+  st.exercises = (st.exercises || []).map(normalizeExercise);
+  st.sessions = st.sessions || []; st.body = st.body || [];
+  if (!st.meta.programApplied) applyDefaultProgram(st);
+  const done = new Set(st.meta.migrations || []);
+  for (const m of MIGRATIONS) if (!done.has(m.id)) { m.run(st); done.add(m.id); }
+  st.meta.migrations = [...done];
+  if (st.draft === undefined) st.draft = null;
+  return st;
 }
 
 function fromSeed(seed) {
@@ -50,6 +79,7 @@ function fromSeed(seed) {
   st.sessions = (seed.sessions || []).map(s => ({ id: uid(), date: s.date, note: s.note || '', approx: !!s.approx, source: s.source || 'xlsx', entries: s.entries.map(en => ({ ex: en.ex, sets: en.sets, raw: en.raw })) }));
   st.body = (seed.body || []).map(b => ({ id: uid(), ...b }));
   st.meta.seeded = new Date().toISOString();
+  st.meta.updatedAt = 1; // un seed ne doit jamais l'emporter sur une sauvegarde en ligne
   return st;
 }
 
@@ -74,27 +104,42 @@ export async function init() {
     const seed = await loadSeed();
     state = seed ? fromSeed(seed) : emptyState();
   }
-  state.settings = { ...emptyState().settings, ...(state.settings || {}) };
-  state.meta = state.meta || {};
-  state.exercises = state.exercises.map(normalizeExercise);
-  mergeProgram(state);
+  migrate(state);
   sortSessions();
-  persist(true);
+  write();
   return state;
+}
+
+/** Récupère la sauvegarde en ligne si elle est plus récente (autre téléphone, réinstallation…). */
+export async function pullRemote() {
+  const remote = await sync.pull();
+  if (!remote || !remote.exercises) return false;
+  if ((remote.meta?.updatedAt || 0) <= (state.meta.updatedAt || 0)) return false;
+  state = migrate(remote);
+  sortSessions();
+  write(); // pas de push : on vient de recevoir la version en ligne
+  listeners.forEach(fn => fn(state));
+  return true;
 }
 
 export function sortSessions() { state.sessions.sort((a, b) => a.date.localeCompare(b.date)); state.body.sort((a, b) => a.date.localeCompare(b.date)); }
 
-export function persist(immediate = false) {
-  const write = () => {
-    const txt = JSON.stringify(state);
-    try { localStorage.setItem(KEY, txt); } catch (e) { console.error('localStorage', e); }
-    const n = native();
-    try { if (n && n.saveBackup) n.saveBackup(txt); } catch (e) { /* ignore */ }
-  };
-  clearTimeout(saveTimer);
-  if (immediate) write(); else saveTimer = setTimeout(write, 300);
+function write() {
+  const txt = JSON.stringify(state);
+  try { localStorage.setItem(KEY, txt); } catch (e) { console.error('localStorage', e); }
+  const n = native();
+  try { if (n && n.saveBackup) n.saveBackup(txt); } catch (e) { /* ignore */ }
+  return txt;
 }
+
+/** Enregistre (local immédiatement après 300 ms) puis envoie en ligne. */
+export function persist(immediate = false) {
+  state.meta.updatedAt = Date.now();
+  const go = () => { write(); sync.schedule(() => JSON.stringify(state)); };
+  clearTimeout(saveTimer);
+  if (immediate) go(); else saveTimer = setTimeout(go, 300);
+}
+export function flush() { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; write(); } sync.flush(() => JSON.stringify(state)); }
 
 export function commit() { sortSessions(); persist(); listeners.forEach(fn => fn(state)); }
 
@@ -103,11 +148,11 @@ export function exportJSON() { return JSON.stringify(state, null, 1); }
 export function importJSON(txt) {
   let obj = JSON.parse(txt);
   if (!obj.exercises || !obj.sessions) throw new Error('Fichier non reconnu');
-  if (!obj.settings) { obj = fromSeed(obj); mergeProgram(obj); } // fichier d'historique brut (seed.json)
-  state = obj;
-  state.exercises = state.exercises.map(normalizeExercise);
+  if (!obj.settings) obj = fromSeed(obj); // fichier d'historique brut (seed.json)
+  state = migrate(obj);
   commit();
   persist(true);
 }
 
 export function ex(id) { return state.exercises.find(e => e.id === id); }
+export const dayOf = id => state.days.find(d => d.id === id);

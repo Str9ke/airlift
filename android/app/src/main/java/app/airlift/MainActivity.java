@@ -5,6 +5,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.Network;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -16,6 +18,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -32,6 +35,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Coquille Android d'AirLift : l'interface est servie depuis GitHub Pages et mise en cache
@@ -42,6 +47,8 @@ public class MainActivity extends Activity {
     private static final int FILE_REQ = 42;
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
+    /** Vrai quand le tout premier chargement a échoué faute de réseau : on sert alors la copie embarquée. */
+    private volatile boolean forceLocal = false;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -68,7 +75,16 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest req) { return localAsset(req); }
+
+            @Override
             public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
+                if (req.isForMainFrame() && !forceLocal) {
+                    // hors ligne au premier lancement : on démarre sur la copie embarquée (même adresse → mêmes données)
+                    forceLocal = true;
+                    v.post(() -> v.loadUrl(BuildConfig.WEB_URL));
+                    return;
+                }
                 if (req.isForMainFrame()) {
                     v.loadDataWithBaseURL(null, "<html><body style='background:#0b1220;color:#eef3fb;font-family:sans-serif;padding:40px;text-align:center'>"
                             + "<h2>AirLift</h2><p>Connexion nécessaire pour le tout premier lancement.<br>Ensuite l'application fonctionne hors ligne.</p>"
@@ -88,6 +104,12 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+        // retour du réseau : on repasse sur la version en ligne (la page se met à jour d'elle-même)
+        try {
+            getSystemService(ConnectivityManager.class).registerDefaultNetworkCallback(new ConnectivityManager.NetworkCallback() {
+                @Override public void onAvailable(Network n) { forceLocal = false; }
+            });
+        } catch (Exception ignored) { }
         if (state != null) web.restoreState(state); else web.loadUrl(BuildConfig.WEB_URL);
         checkApkUpdate(false);
     }
@@ -112,6 +134,39 @@ public class MainActivity extends Activity {
                 if (web.canGoBack()) web.goBack(); else finish();
             }
         });
+    }
+
+    // ------------------------------------------------------------------ copie embarquée (hors ligne)
+    private WebResourceResponse localAsset(WebResourceRequest req) {
+        if (!forceLocal || !"GET".equals(req.getMethod())) return null;
+        String url = req.getUrl().toString();
+        if (!url.startsWith(BuildConfig.WEB_URL)) return null;
+        String rel = req.getUrl().getPath();
+        String base = Uri.parse(BuildConfig.WEB_URL).getPath();
+        rel = rel != null && base != null && rel.length() > base.length() ? rel.substring(base.length()) : "";
+        if (rel.isEmpty()) rel = "index.html";
+        if (rel.endsWith("version.json") || rel.endsWith("android.json")) return null;
+        try {
+            InputStream in = getAssets().open("www/" + rel);
+            WebResourceResponse r = new WebResourceResponse(mimeOf(rel), "UTF-8", in);
+            Map<String, String> h = new HashMap<>();
+            h.put("Cache-Control", "no-store");
+            h.put("Access-Control-Allow-Origin", "*");
+            r.setResponseHeaders(h);
+            return r;
+        } catch (Exception e) { return null; }
+    }
+
+    private static String mimeOf(String p) {
+        if (p.endsWith(".html")) return "text/html";
+        if (p.endsWith(".js")) return "text/javascript";
+        if (p.endsWith(".css")) return "text/css";
+        if (p.endsWith(".json")) return "application/json";
+        if (p.endsWith(".webmanifest")) return "application/manifest+json";
+        if (p.endsWith(".svg")) return "image/svg+xml";
+        if (p.endsWith(".jpg")) return "image/jpeg";
+        if (p.endsWith(".png")) return "image/png";
+        return "application/octet-stream";
     }
 
     // ------------------------------------------------------------------ pont JS
