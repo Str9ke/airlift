@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1220">
+<title>AirLift</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="app.css?v=1.0.0">
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand"><svg viewBox="0 0 64 64" class="logo" aria-hidden="true"><use href="#logo"/></svg><span>AirLift</span></div>
+    <div class="top-actions">
+      <button class="icon-btn" id="btn-settings" aria-label="Réglages"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button>
+    </div>
+  </header>
+  <main id="view"></main>
+  <nav class="tabs" id="tabs">
+    <button data-tab="prog"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Programme</span></button>
+    <button data-tab="log"><svg viewBox="0 0 24 24"><path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/></svg><span>Séance</span></button>
+    <button data-tab="stats"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15l3.5-4 3 2.5L20 7"/></svg><span>Stats</span></button>
+    <button data-tab="body"><svg viewBox="0 0 24 24"><path d="M12 3a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM7 10h10l-1.5 5H14l-.5 6h-3l-.5-6H8.5L7 10Z"/></svg><span>Corps</span></button>
+    <button data-tab="hist"><svg viewBox="0 0 24 24"><path d="M12 7v5l3 2M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4h4"/></svg><span>Historique</span></button>
+  </nav>
+</div>
+<div id="sheet-root"></div>
+<div id="toast" role="status"></div>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="logo" viewBox="0 0 64 64">
+    <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4fd1c5"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs>
+    <path d="M8 30C16 14 36 8 56 12C46 16 38 22 33 30C26 26 17 26 8 30Z" fill="url(#lg)"/>
+    <path d="M14 32 31 54M50 18 31 54" stroke="url(#lg)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <rect x="22" y="50" width="20" height="5" rx="2.5" fill="#f97366"/>
+  </symbol>
+</svg>
+<script src="vendor/Sortable.min.js"></script>
+<script type="module" src="js/app.js?v=1.0.0"></script>
+</body>
+</html>

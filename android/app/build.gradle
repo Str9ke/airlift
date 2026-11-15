@@ -1,0 +1,37 @@
+plugins { id 'com.android.application' }
+
+def props = new Properties()
+def pf = rootProject.file('keystore.properties')
+if (pf.exists()) props.load(new FileInputStream(pf))
+
+android {
+    namespace 'app.airlift'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'app.airlift'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+        buildConfigField 'String', 'WEB_URL', '"https://str9ke.github.io/airlift/"'
+    }
+    buildFeatures { buildConfig true }
+    signingConfigs {
+        release {
+            if (pf.exists()) {
+                storeFile rootProject.file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.release }
+    }
+    // -Pperso=false : APK public sans données personnelles (seed.json exclu)
+    sourceSets { main { if (project.findProperty('perso') == 'false') assets.srcDirs = [] } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+dependencies { implementation 'androidx.core:core:1.13.1' }

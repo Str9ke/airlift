@@ -1,0 +1,19 @@
+# Données personnelles — jamais publiées
+*.xlsx
+programme.txt
+data/
+tools/
+docs/seed.json
+android/app/src/main/assets/seed.json
+ANALYSE_PROGRAMME.md
+dist/
+# Signature & machine locale
+android/keystore/
+android/keystore.properties
+android/local.properties
+# Build
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+*.iml
