@@ -7,7 +7,7 @@ import { lineChart, sparkline, fdate } from './charts.js';
 import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -47,7 +47,21 @@ function sheet(html, { full = false, onClose } = {}) {
 const closeAllSheets = () => { $('#sheet-root').innerHTML = ''; };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllSheets(); });
 // bouton retour Android : ferme la feuille ouverte
-window.airliftBack = () => { const r = $('#sheet-root'); if (r.lastElementChild) { r.lastElementChild.remove(); r.lastElementChild?.remove(); if (ui.tab) render(); return true; } if (ui.tab !== 'prog') { setTab('prog'); return true; } return false; };
+// Bouton « retour » (Android / navigateur) : ferme la fenêtre ouverte, sinon revient à l'écran précédent
+// (onglet, jour sélectionné…). On ne quitte l'app que depuis l'écran d'accueil, après un 2e appui.
+const navStack = [];
+const navSnap = () => ({ tab: ui.tab, day: ui.day, y: window.scrollY });
+function navPush() { const s = navSnap(), t = navStack.at(-1); if (!t || t.tab !== s.tab || t.day !== s.day) navStack.push(s); if (navStack.length > 30) navStack.shift(); }
+let exitArmed = 0;
+window.airliftBack = () => {
+  const r = $('#sheet-root');
+  if (r.lastElementChild) { r.lastElementChild.remove(); if (r.lastElementChild?.classList.contains('sheet-back')) r.lastElementChild.remove(); if (!r.children.length) render(); return true; }
+  const prev = navStack.pop();
+  if (prev) { ui.tab = prev.tab; ui.day = prev.day; saveUi(); render(); window.scrollTo(0, prev.y || 0); return true; }
+  if (ui.tab !== 'prog' || ui.day !== 'all') { ui.tab = 'prog'; ui.day = 'all'; saveUi(); render(); window.scrollTo(0, 0); return true; }
+  if (Date.now() - exitArmed < 2500) return false;
+  exitArmed = Date.now(); toast('Appuie encore sur retour pour quitter'); return true;
+};
 
 function confirmBox(msg, okLabel = 'Confirmer', danger = false) {
   return new Promise(res => {
@@ -57,7 +71,7 @@ function confirmBox(msg, okLabel = 'Confirmer', danger = false) {
   });
 }
 
-function setTab(t) { ui.tab = t; saveUi(); render(); window.scrollTo(0, 0); }
+function setTab(t) { if (t !== ui.tab) navPush(); ui.tab = t; saveUi(); render(); window.scrollTo(0, 0); }
 $$('#tabs button').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 $('#btn-settings').onclick = () => openSettings();
 $('#btn-sync').onclick = () => { openSettings(); setTimeout(() => $('#st-sync')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); };
@@ -81,9 +95,11 @@ function render() {
 }
 
 // ================================================================ PROGRAMME
-function rangeOf(e) {
-  if (e.type === 'time') return `${e.sets}×${e.timeMin}-${e.timeMax}s`;
-  return `${e.sets}×${e.repMin}${e.repMax !== e.repMin ? '-' + e.repMax : ''}`;
+const setsOn = (e, day) => (day && e.daySets?.[day]) ?? e.sets;
+function rangeOf(e, day = null) {
+  const per = !day && e.daySets && e.days.length > 1 ? e.days.map(d => setsOn(e, d)).join('/') : setsOn(e, day);
+  if (e.type === 'time') return `${per}×${e.timeMin}-${e.timeMax}s`;
+  return `${per}×${e.repMin}${e.repMax !== e.repMin ? '-' + e.repMax : ''}`;
 }
 
 function exRow(e, archived = false) {
@@ -101,7 +117,7 @@ function exRow(e, archived = false) {
     ${archived ? '<span style="width:6px"></span>' : `<span class="handle" aria-label="Déplacer">${ICON.grip}</span>`}
     <div class="grow" data-open>
       <div class="name">${archived ? '' : e.days.map(dayTag).join('')}${esc(e.name)}</div>
-      <div class="meta">${archived ? (st.last ? `${esc(recent)} · il y a ${C.fmtDuration(since)}` : 'Aucune donnée') : `${rangeOf(e)}${recent ? ' · ' + esc(recent) : ''}`}</div>
+      <div class="meta">${archived ? (st.last ? `${esc(recent)} · il y a ${C.fmtDuration(since)}` : 'Aucune donnée') : `${rangeOf(e, ui.day === 'all' ? null : ui.day)}${recent ? ' · ' + esc(recent) : ''}`}</div>
     </div>
     ${next}
     ${sparkline(vals)}
@@ -146,11 +162,16 @@ function renderProg(v) {
       <button class="btn sm primary" id="start-day">Démarrer ${ui.day === 'all' ? 'la séance' : esc(dayOf(ui.day)?.short || '')}</button>
     </div>
     <div class="ex-list" id="active-list">${shown.map(e => exRow(e)).join('') || '<div class="empty">Aucun exercice pour ce jour.</div>'}</div>
+    ${ui.day !== 'all' ? `<button class="btn block add-day" id="add-day">${ICON.plus.replace('<svg', '<svg width="18" height="18" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Ajouter un exercice au ${esc((dayOf(ui.day)?.label || '').split(' ·')[0].toLowerCase())}</button>` : ''}
     <button class="section-toggle" id="toggle-arch"><span>Anciens exercices · hors programme (${st.exercises.filter(e => !e.active).length})</span><span>${ui.showArch ? '▴' : '▾'}</span></button>
     ${ui.showArch ? `<input placeholder="Rechercher…" id="arch-filter" value="${esc(ui.archFilter)}" style="margin-bottom:8px">
     <div class="ex-list">${archived.map(x => exRow(x.e, true)).join('')}</div>` : ''}
     <button class="fab" id="fab-add" aria-label="Ajouter un exercice">${ICON.plus}</button>`;
-  $$('[data-day]', v).forEach(b => b.onclick = () => { ui.day = b.dataset.day; saveUi(); render(); });
+  $$('[data-day]', v).forEach(b => b.onclick = () => { if (ui.day !== b.dataset.day) navPush(); ui.day = b.dataset.day; saveUi(); render(); });
+  // le jour choisi reste visible à sa place (pas de retour au début de la liste)
+  const chips = $('.chips', v);
+  if (chips) { chips.scrollLeft = ui.chipsX || 0; chips.onscroll = () => { ui.chipsX = chips.scrollLeft; }; const on = $('.chip.on', chips); if (on && (on.offsetLeft < chips.scrollLeft || on.offsetLeft + on.offsetWidth > chips.scrollLeft + chips.clientWidth)) on.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }
+  const ad = $('#add-day', v); if (ad) ad.onclick = () => addToDay(ui.day);
   $('#toggle-arch').onclick = () => { ui.showArch = !ui.showArch; render(); };
   const af = $('#arch-filter'); if (af) af.oninput = () => { ui.archFilter = af.value; const pos = af.selectionStart; render(); const n = $('#arch-filter'); n.focus(); n.setSelectionRange(pos, pos); };
   $('#fab-add').onclick = () => editExercise(null);
@@ -166,11 +187,71 @@ function renderProg(v) {
         const all = S().exercises.filter(e => e.active).sort((a, b) => a.order - b.order);
         const slots = all.filter(e => ids.includes(e.id)).map(e => e.order);
         ids.forEach((id, i) => { getEx(id).order = slots[i]; });
-        normalizeOrder(); commit();
+        normalizeOrder(); S().meta.userOrdered = true; commit();
       },
     });
   }
 }
+/** Ajouter un exercice à un jour : d'abord ceux du programme (autres jours), puis seulement en bas les hors programme. */
+function addToDay(day) {
+  const dl = dayOf(day);
+  const inProg = S().exercises.filter(e => e.active && !e.days.includes(day)).sort((a, b) => a.order - b.order);
+  const outProg = S().exercises.filter(e => !e.active).map(e => ({ e, st: C.exStats(e.id) })).sort((a, b) => (b.st.last?.date || '').localeCompare(a.st.last?.date || ''));
+  const sh = sheet(`<div class="sheet-head"><h2>Ajouter au ${esc(dl.label.split(' ·')[0].toLowerCase())}</h2><button class="icon-btn" data-close>${ICON.x}</button></div>
+    <input id="ad-q" placeholder="Rechercher…" style="margin-bottom:10px">
+    <div id="ad-list"></div>
+    <button class="btn block" id="ad-new" style="margin-top:12px">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Créer un nouvel exercice</button>`, { full: true });
+  const item = (e, extra) => `<button class="pick-row" data-id="${e.id}">${illuHTML(e, 'thumb')}<span class="grow"><b>${esc(e.name)}</b><small>${extra}</small></span><span class="pick-plus">${ICON.plus}</span></button>`;
+  const draw = () => {
+    const q = $('#ad-q', sh).value.toLowerCase();
+    const f = e => e.name.toLowerCase().includes(q);
+    const a = inProg.filter(f), b = outProg.filter(x => f(x.e));
+    $('#ad-list', sh).innerHTML = `<h3 class="pick-h">Dans le programme · autres jours (${a.length})</h3>
+      ${a.map(e => item(e, e.days.map(d => dayOf(d)?.short).join(' · ') + ' · ' + rangeOf(e))).join('') || '<div class="empty">Tous les exercices du programme sont déjà ce jour-là.</div>'}
+      <h3 class="pick-h">Hors programme (${b.length})</h3>
+      ${b.slice(0, 80).map(({ e, st }) => item(e, st.last ? `dernière fois ${fdate(st.last.date)}` : 'jamais fait')).join('')}`;
+    $$('.pick-row', sh).forEach(btn => btn.onclick = () => {
+      const e = getEx(btn.dataset.id);
+      if (!e.days.includes(day)) e.days.push(day);
+      if (!e.active) { e.active = true; e.order = 9999; normalizeOrder(); }
+      e.userEdited = true; commit(); render(); toast(`« ${e.name} » ajouté au ${dl.short}`);
+      btn.remove();
+    });
+  };
+  $('#ad-q', sh).oninput = draw; draw();
+  $('#ad-new', sh).onclick = () => { sh.close(); editExercise(null); };
+}
+
+// ---------------------------------------------------------------- records en direct
+function celebrateSet(e, s, d, card) {
+  if (!e) return;
+  const p = C.setPerf(e, s, d.date);
+  const rec = C.recordCheck(e, p, d.date, d.id);
+  if (!rec) return;
+  d.records = d.records || {};
+  const prevType = d.records[e.id];
+  if (prevType === 'abs' || (prevType === 'rep' && rec.type === 'rep')) { flashBadge(card, rec.type); return; }
+  d.records[e.id] = rec.type;
+  flashBadge(card, rec.type);
+  const abs = rec.type === 'abs';
+  const unit = C.perfUnit(e);
+  const ov = document.createElement('div');
+  ov.className = 'rec-pop ' + (abs ? 'abs' : 'rep');
+  ov.innerHTML = `<div class="rec-card"><div class="rec-ico">${abs ? '🏆' : '⚡'}</div><div class="rec-t">${abs ? 'Record absolu !' : 'Record de reprise !'}</div>
+    <div class="rec-n">${esc(e.name)}</div><div class="rec-v">${fmt(p)} ${unit} <small>(avant : ${fmt(rec.prev)})</small></div>
+    <div class="rec-s">${abs ? 'Ton meilleur niveau de tous les temps' : 'Ton meilleur depuis la reprise'}</div></div>
+    ${abs ? Array.from({ length: 36 }, (_, i) => `<i style="--x:${Math.random() * 100}%;--d:${(Math.random() * .6).toFixed(2)}s;--c:${['#f5b942', '#4fd1c5', '#3b82f6', '#f97366'][i % 4]}"></i>`).join('') : ''}`;
+  document.body.append(ov);
+  if (navigator.vibrate) navigator.vibrate(abs ? [80, 60, 80, 60, 200] : [60, 40, 120]);
+  const close = () => ov.remove();
+  ov.onclick = close; setTimeout(close, abs ? 3200 : 2200);
+}
+function flashBadge(card, type) {
+  const h = $('h3', card); if (!h) return;
+  $('.rec-tag', h)?.remove();
+  h.insertAdjacentHTML('beforeend', type === 'abs' ? ' <span class="rec-tag pr-badge">🏆 RECORD</span>' : ' <span class="rec-tag rep-badge">⚡ REPRISE</span>');
+}
+
 function normalizeOrder() { S().exercises.filter(e => e.active).sort((a, b) => a.order - b.order).forEach((e, i) => e.order = i); }
 
 function bindRows(v) {
@@ -256,6 +337,7 @@ function editExercise(e) {
 
     if (t.repMax < t.repMin) t.repMax = t.repMin;
     if (isNew) { t.id = uid(); t.active = true; t.order = 9999; S().exercises.push(t); normalizeOrder(); }
+    t.userEdited = true;
     C.invalidate(); S()._rev = (S()._rev || 0) + 1; commit(); sh.close(); render();
     toast(isNew ? 'Exercice ajouté' : 'Enregistré');
   };
@@ -299,16 +381,21 @@ function openExercise(id) {
     <div class="card" style="margin-top:12px">
       <div class="row" style="margin-bottom:6px"><b class="grow">${C.perfLabel(e)}</b><div class="range" id="d-range">${['3m', '1a', '5a', 'all'].map(r => `<button data-r="${r}" class="${(ui.exRange || 'all') === r ? 'on' : ''}">${{ '3m': '3 m', '1a': '1 an', '5a': '5 ans', all: 'Tout' }[r]}</button>`).join('')}</div></div>
       <div id="d-chart"></div>
-      <div class="legend"><span><i style="background:var(--series-1)"></i>${C.perfLabel(e)}</span><span><i class="pr"></i>Record battu</span><span><i class="hatch"></i>Pause &gt; 2 mois</span></div>
+      <div class="legend"><span><i style="background:var(--series-1)"></i>${C.perfLabel(e)}</span><span><i class="pr"></i>Record absolu</span><span><i class="pr rep"></i>Record de reprise</span><span><i class="hatch"></i>Pause &gt; 2 mois</span></div>
       <div class="sub" style="margin:6px 0 0">Courbe = meilleure performance des 4 dernières semaines ; points gris = chaque séance.</div>
     </div>` : '<div class="empty">Pas encore d\'historique pour cet exercice.</div>'}
+    ${e.active ? configCard(e) : ''}
     ${e.active ? `<div class="card" style="margin-top:12px"><div class="row"><b class="grow">Prochaine séance</b><button class="btn sm" id="d-plan">Modifier</button></div>
       <div style="margin-top:6px;font-size:16px;font-weight:700;color:var(--accent)">${esc(sg.sets.map(s => C.fmtSet(e, s)).join(' · ') || '—')}</div>
       <div class="sub" style="margin:4px 0 0">${sg.manual ? 'Objectif marqué manuellement.' + (sg.note ? ' ' + esc(sg.note) : '') : esc(sg.note || `Double progression : vise ${e.type === 'time' ? e.timeMax + ' s' : e.repMax + ' reps'} sur chaque série, puis la charge monte de ${fmt(C.incOf(e))} kg${e.equip === 'db2' ? ' par haltère' : ''}.`)}</div></div>` : ''}
     <h2>Séances (${st.n})</h2>
+    <div class="legend" style="margin:-4px 0 6px"><span><span class="pr-badge">PR</span> record absolu</span><span><span class="rep-badge">R</span> record de reprise (meilleur depuis la dernière pause)</span></div>
     <table><thead><tr><th>Date</th><th>Séries</th><th class="r">${unit}</th></tr></thead><tbody>
-    ${st.arr.slice().reverse().slice(0, 80).map((h, i, a) => { const prev = a[i + 1]; const d = prev ? h.perf - prev.perf : 0; return `<tr><td>${fdate(h.date)}${h.session.approx ? ' <span class="muted">≈</span>' : ''}</td><td>${esc(C.fmtEntry(e, h.entry))}${h.isPR ? ' <span class="pr-badge">PR</span>' : ''}</td><td class="r">${fmt(h.perf)}${prev ? `<br><small class="delta ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '+' : ''}${fmt(d)}</small>` : ''}</td></tr>`; }).join('')}
+    ${st.arr.slice().reverse().slice(0, 80).map((h, i, a) => { const prev = a[i + 1]; const d = prev ? h.perf - prev.perf : 0; return `<tr><td>${fdate(h.date)}${h.session.approx ? ' <span class="muted">≈</span>' : ''}</td><td>${esc(C.fmtEntry(e, h.entry))}${h.isPR ? ' <span class="pr-badge">PR</span>' : h.isSegPR ? ' <span class="rep-badge">R</span>' : ''}</td>
+<td class="r">${fmt(h.perf)}${prev ? `<br><small class="delta ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '+' : ''}${fmt(d)}</small>` : ''}</td></tr>`; }).join('')}
     </tbody></table>
+    ${C.suspectsOf(id).length ? `<h2>Valeurs écartées (${C.suspectsOf(id).length})</h2><p class="sub">Trop éloignées de tes séances voisines (probable erreur de saisie) : elles ne comptent pas dans les records. Si c'était bien réel, réintègre-les.</p>
+      ${C.suspectsOf(id).map(h => `<div class="row card" style="padding:8px 10px;margin-bottom:6px"><span class="grow">${fdate(h.date)} · ${esc(C.fmtEntry(e, h.entry))} <span class="muted">(${fmt(h.perf)} ${unit})</span></span><button class="btn sm" data-ok-sid="${h.session.id}">C'était réel</button></div>`).join('')}` : ''}
     <div class="grid2" style="margin-top:16px">${e.active ? `<button class="btn" id="d-arch">${ICON.archive.replace('<svg', '<svg width="18" height="18" style="fill:none;stroke:currentColor;stroke-width:1.8"')} Retirer du programme</button>` : `<button class="btn primary" id="d-restore">Remettre dans le programme</button>`}<button class="btn" id="d-edit">Modifier</button></div>`, { full: true });
   const draw = () => {
     const host = $('#d-chart', sh); if (!host) return;
@@ -320,6 +407,8 @@ function openExercise(id) {
   requestAnimationFrame(draw);
   $$('#d-range button', sh).forEach(b => b.onclick = () => { ui.exRange = b.dataset.r; $$('#d-range button', sh).forEach(x => x.classList.toggle('on', x === b)); draw(); });
   $('#d-menu', sh).onclick = () => exMenu(id);
+  if (e.active) bindConfig(sh, e);
+  $$('[data-ok-sid]', sh).forEach(b => b.onclick = () => { const s = S().sessions.find(x => x.id === b.dataset.okSid); const en = s?.entries.find(x => x.ex === id); if (en) { en.ok = true; S()._rev++; C.invalidate(); commit(); sh.close(); openExercise(id); toast('Valeur réintégrée'); } });
   $('#d-illu', sh).onclick = () => pickIllustration(e, img => { e.img = img; commit(); $('#d-illu', sh).innerHTML = illuHTML(e, 'hero'); });
   const p = $('#d-plan', sh); if (p) p.onclick = () => { sh.close(); editPlan(e); };
   $('#d-edit', sh).onclick = () => { sh.close(); editExercise(e); };
@@ -327,7 +416,48 @@ function openExercise(id) {
   const r = $('#d-restore', sh); if (r) r.onclick = () => { e.active = true; e.order = 9999; normalizeOrder(); commit(); sh.close(); render(); toast('Remis dans le programme'); };
 }
 
+// ---------------------------------------------------------------- réglages rapides de l'exercice (séries, reps, jours)
+function configCard(e) {
+  const time = e.type === 'time';
+  const step = (k, v, lbl) => `<div class="stepper" data-k="${k}"><span class="st-l">${lbl}</span><button data-d="-1" aria-label="moins">−</button><b>${v}</b><button data-d="1" aria-label="plus">+</button></div>`;
+  return `<div class="card cfg" style="margin-top:12px"><b>Dans ton programme</b>
+    <div class="cfg-days">${DAYS_().map(d => `<button class="chip ${e.days.includes(d.id) ? 'on' : ''}" data-cday="${d.id}">${esc(d.short)}</button>`).join('')}</div>
+    <div class="cfg-row">${e.days.length ? e.days.map(d => step('sets:' + d, setsOn(e, d), `Séries ${esc(dayOf(d)?.short || d)}`)).join('') : step('sets', e.sets, 'Séries')}</div>
+    <div class="cfg-row">${time ? step('timeMin', e.timeMin, 'Durée min (s)') + step('timeMax', e.timeMax, 'max') : step('repMin', e.repMin, 'Reps min') + step('repMax', e.repMax, 'max')}</div>
+    <div class="hint">${time ? 'Quand tu tiens la durée max, l\'objectif augmente.' : 'Quand tu atteins les reps max sur une série, la charge suivante est proposée.'}</div></div>`;
+}
+function bindConfig(sh, e) {
+  const host = $('.cfg', sh); if (!host) return;
+  const redraw = () => { e.userEdited = true; S()._rev++; C.invalidate(); commit(); host.outerHTML = configCard(e); bindConfig(sh, e); render(); };
+  $$('[data-cday]', host).forEach(b => b.onclick = () => {
+    const d = b.dataset.cday;
+    if (e.days.includes(d)) { if (e.days.length === 1) { toast('Au moins un jour — sinon retire l\'exercice du programme'); return; } e.days = e.days.filter(x => x !== d); if (e.daySets) delete e.daySets[d]; }
+    else e.days = DAYS_().map(x => x.id).filter(x => x === d || e.days.includes(x));
+    redraw();
+  });
+  $$('.stepper', host).forEach(st => $$('button', st).forEach(b => b.onclick = () => {
+    const [k, day] = st.dataset.k.split(':'), dlt = +b.dataset.d;
+    if (k === 'sets') {
+      const v = Math.max(1, Math.min(10, (day ? setsOn(e, day) : e.sets) + dlt));
+      if (day && e.days.length > 1) {
+        const vals = Object.fromEntries(e.days.map(x => [x, x === day ? v : setsOn(e, x)]));
+        e.sets = Math.max(...Object.values(vals));
+        const ds = Object.fromEntries(Object.entries(vals).filter(([, n]) => n !== e.sets));
+        e.daySets = Object.keys(ds).length ? ds : null;
+      }
+      else { e.sets = v; e.daySets = null; }
+    } else {
+      const stp = k.startsWith('time') ? 5 : 1;
+      e[k] = Math.max(stp, e[k] + dlt * stp);
+      if (e.repMax < e.repMin) k === 'repMin' ? e.repMax = e.repMin : e.repMin = e.repMax;
+      if (e.timeMax < e.timeMin) k === 'timeMin' ? e.timeMax = e.timeMin : e.timeMin = e.timeMax;
+    }
+    redraw();
+  }));
+}
+
 function rangeStart(r) {
+
   const d = new Date();
   if (r === '3m') d.setMonth(d.getMonth() - 3); else if (r === '1a') d.setFullYear(d.getFullYear() - 1); else if (r === '5a') d.setFullYear(d.getFullYear() - 5); else return '0000';
   return C.iso(d);
@@ -370,7 +500,7 @@ function startSession(day) {
   const cur = loadDraft();
   if (cur) { setTab('log'); toast('Une séance est déjà en cours — termine-la ou supprime-la'); return; }
   const list = S().exercises.filter(e => e.active && (!day || e.days.includes(day))).sort((a, b) => a.order - b.order);
-  saveDraft({ id: uid(), date: today(), day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => ({ ex: e.id, sets: Array.from({ length: e.sets }, () => ({})) })) });
+  saveDraft({ id: uid(), date: today(), day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => ({ ex: e.id, sets: Array.from({ length: setsOn(e, day) }, () => ({})) })) });
   setTab('log');
 }
 
@@ -443,6 +573,7 @@ function sessionEditor(host, d, onChange, { suggest = false, onSet = null } = {}
         card.classList.toggle('done', en.sets.every(x => x.done));
         if (s.done && navigator.vibrate) navigator.vibrate(15);
         if (s.done && onSet) onSet();
+        if (s.done && suggest) celebrateSet(getEx(en.ex), s, d, card);
         onChange();
       };
     });
@@ -479,14 +610,18 @@ function finishSession(d) {
   C.invalidate(); commit(); saveDraft(null);
   const sc = C.sessionScores().find(x => x.session.id === sess.id);
   const prs = C.history();
-  const prNames = entries.filter(en => (prs.byEx.get(en.ex) || []).find(h => h.session.id === sess.id && h.isPR)).map(en => getEx(en.ex).name);
+  const recOf = en => (prs.byEx.get(en.ex) || []).find(h => h.session.id === sess.id);
+  const prNames = entries.filter(en => recOf(en)?.isPR).map(en => getEx(en.ex).name);
+  const segNames = entries.filter(en => recOf(en)?.isSegPR).map(en => getEx(en.ex).name);
   const sh = sheet(`<div style="text-align:center;padding:10px 0">
       <div class="muted" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:12px">Séance enregistrée</div>
       <div class="summary-pts">${sc && sc.pts >= 0 ? '+' : ''}${sc ? sc.pts : 0} pts</div>
       ${sess.dur ? `<div class="summary-time">⏱ ${fmtMin(sess.dur)} <span class="muted">(${sess.start} → ${sess.end})</span></div>` : ''}
       <div class="sub">Total : ${fmt((sc?.cum ?? before), 0)} pts · ${entries.length} exercices · facteur volume ×${fmt(sc?.vol ?? 1, 2)}</div>
 
-      ${prNames.length ? `<p><span class="pr-badge">RECORD</span> ${prNames.map(esc).join(', ')}</p>` : ''}
+      ${prNames.length ? `<p><span class="pr-badge">🏆 RECORD ABSOLU</span> ${prNames.map(esc).join(', ')}</p>` : ''}
+      ${segNames.length ? `<p><span class="rep-badge">⚡ RECORD DE REPRISE</span> ${segNames.map(esc).join(', ')}</p>` : ''}
+
     </div>
     <h2>Prochaine fois</h2>
     <div class="menu">${entries.map(en => { const e = getEx(en.ex); const sg = C.suggest(e); return `<div class="card" style="padding:10px 12px"><b>${esc(e.name)}</b><div style="color:${sg.sets.some(s => s.up) ? 'var(--gold)' : 'var(--accent)'};font-weight:700">${esc(sg.sets.map(s => C.fmtSet(e, s)).join(' · '))}</div>${sg.note ? `<div class="sub" style="margin:2px 0 0">${esc(sg.note)}</div>` : ''}</div>`; }).join('')}</div>

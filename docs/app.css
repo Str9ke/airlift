@@ -228,3 +228,40 @@ td.r, th.r { text-align: right; }
 .sync-dot.s-error { background: var(--bad); }
 .sync-dot.s-off { background: transparent; box-shadow: inset 0 0 0 2px var(--muted); }
 .top-actions { display: flex; align-items: center; gap: 2px; }
+
+/* ---------- records : absolu (or) et de reprise (turquoise) */
+.chart .rep-dot { fill: var(--accent); stroke: var(--card); stroke-width: 2; }
+.legend i.pr.rep { background: var(--accent); }
+.rep-badge { display: inline-block; background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); font-size: 10.5px; font-weight: 800; padding: 1px 6px; border-radius: 6px; }
+.rec-pop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(5, 10, 20, .55); backdrop-filter: blur(3px); animation: rp-in .25s ease-out; overflow: hidden; }
+.rec-card { text-align: center; padding: 22px 26px; border-radius: 22px; background: var(--card); border: 2px solid var(--accent); box-shadow: 0 20px 60px rgba(0, 0, 0, .5); animation: rp-pop .5s cubic-bezier(.2, 1.6, .4, 1); max-width: 300px; }
+.rec-pop.abs .rec-card { border-color: var(--gold); background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--gold) 26%, var(--card)), var(--card) 70%); }
+.rec-ico { font-size: 54px; line-height: 1; animation: rp-bounce 1s ease-in-out infinite; }
+.rec-t { font-size: 24px; font-weight: 800; margin-top: 6px; color: var(--accent); }
+.rec-pop.abs .rec-t { color: var(--gold); font-size: 27px; }
+.rec-n { font-weight: 700; margin-top: 4px; }
+.rec-v { font-size: 20px; font-weight: 800; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.rec-v small { font-size: 12px; color: var(--text2); font-weight: 600; }
+.rec-s { font-size: 12.5px; color: var(--text2); margin-top: 6px; }
+.rec-pop i { position: absolute; top: -12px; left: var(--x); width: 8px; height: 14px; background: var(--c); border-radius: 2px; animation: rp-fall 2.6s var(--d) ease-in forwards; }
+@keyframes rp-in { from { opacity: 0; } }
+@keyframes rp-pop { from { transform: scale(.4); opacity: 0; } }
+@keyframes rp-bounce { 50% { transform: translateY(-6px) rotate(-6deg); } }
+@keyframes rp-fall { to { transform: translateY(110vh) rotate(720deg); } }
+@media (prefers-reduced-motion: reduce) { .rec-card, .rec-ico, .rec-pop i { animation: none; } }
+
+/* ---------- réglages rapides de l'exercice */
+.cfg-days { display: flex; gap: 6px; margin: 8px 0; }
+.cfg-days .chip { padding: 6px 14px; }
+.cfg-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.stepper { display: flex; align-items: center; gap: 6px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 4px 6px 4px 10px; }
+.stepper .st-l { font-size: 12px; color: var(--text2); margin-right: 2px; }
+.stepper button { width: 32px; height: 32px; border-radius: 9px; background: var(--card2); font-size: 18px; font-weight: 700; }
+.stepper b { min-width: 24px; text-align: center; font-size: 16px; font-variant-numeric: tabular-nums; }
+
+/* ---------- ajout d'exercices à un jour */
+.add-day { margin-top: 8px; border: 1px dashed var(--line); background: transparent; color: var(--accent); font-weight: 700; display: flex; gap: 6px; justify-content: center; align-items: center; }
+.pick-h { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
+.pick-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px; border-radius: 12px; background: var(--card); margin-bottom: 6px; }
+.pick-row small { display: block; color: var(--text2); font-size: 12px; }
+.pick-plus svg { width: 22px; height: 22px; fill: none; stroke: var(--accent); stroke-width: 2.2; }

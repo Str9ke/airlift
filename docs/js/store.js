@@ -4,7 +4,7 @@
 // stockée dans tes données, jamais dans le code. Une nouvelle version de l'app ne la remplace pas :
 // les évolutions passent par MIGRATIONS, exécutées une seule fois, qui ne font qu'AJOUTER
 // (ex. un nouvel exercice proposé, rangé dans « anciens exercices ») sans écraser ce que tu as modifié.
-import { PROGRAM, EXTRA, EQUIP, DEFAULT_DAYS } from './program.js';
+import { PROGRAM, EXTRA, EQUIP, DEFAULT_DAYS, PREV_12 } from './program.js';
 import * as sync from './sync.js';
 
 const KEY = 'airlift.v1';
@@ -38,6 +38,7 @@ export function normalizeExercise(e, i = 0) {
     repMin: e.repMin ?? 8, repMax: e.repMax ?? 12, timeMin: e.timeMin ?? 20, timeMax: e.timeMax ?? 45,
     days: (e.days || []).map(d => OLD_DAYS[d] || d), active: e.active ?? false, order: e.order ?? 1000 + i,
     cue: e.cue || '', notes: e.notes || '', plan: e.plan || null, img: e.img ?? null,
+    daySets: e.daySets || null, userEdited: !!e.userEdited,
   };
 }
 
@@ -61,7 +62,35 @@ function applyDefaultProgram(st) {
 const addIfMissing = (st, p, active = false) => { if (!st.exercises.some(e => e.id === p.id)) st.exercises.push(normalizeExercise({ ...p, active, order: 900 })); };
 
 // Évolutions futures du programme : { id: 'AAAA-MM-JJ-quoi', run(st) { addIfMissing(st, {...}) } }
-const MIGRATIONS = [];
+const MIGRATIONS = [
+  { id: '2026-11-16-programme-1.3', run(st) {
+    // Applique le programme 1.3 aux exercices restés tels que la 1.2 les avait configurés ; ceux que tu as modifiés ne bougent pas.
+    const byId = new Map(st.exercises.map(e => [e.id, e]));
+    const untouched = e => { const pv = PREV_12[e.id]; return !e.userEdited && pv && e.sets === pv[0] && e.days.join(',') === pv[1]; };
+    PROGRAM.forEach((p, i) => {
+      const cur = byId.get(p.id);
+      if (!cur) st.exercises.push(normalizeExercise({ ...p, active: true, order: i }, i));
+      else if (untouched(cur) || !cur.active) Object.assign(cur, { ...p, active: true, order: cur.active ? cur.order : 100 + i, inc: EQUIP[p.equip].inc, daySets: p.daySets || null });
+    });
+    const ids = new Set(PROGRAM.map(p => p.id));
+    st.exercises.forEach(e => { if (e.active && !ids.has(e.id) && untouched(e)) e.active = false; });
+    if (!st.meta.userOrdered) { const order = new Map(PROGRAM.map((p, i) => [p.id, i])); st.exercises.forEach(e => { if (order.has(e.id)) e.order = order.get(e.id); }); }
+    EXTRA.forEach((p, i) => { if (!byId.has(p.id)) st.exercises.push(normalizeExercise({ ...p, active: false, order: 500 + i }, i)); });
+  } },
+];
+
+// Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
+const DATA_FIXES = [
+  { id: 'xlsx-2026-11-16', run(st) {
+    const find = (date, ex) => { for (const s of st.sessions) if (s.date === date) { const en = s.entries.find(x => x.ex === ex); if (en) return { s, en }; } return null; };
+    const move = (date, from, to) => { const f = find(date, from); if (!f) return; if (f.s.entries.some(x => x.ex === to)) f.s.entries.find(x => x.ex === to).sets.push(...f.en.sets); else f.s.entries.push({ ...f.en, ex: to }); f.s.entries = f.s.entries.filter(x => x !== f.en); };
+    move('2022-10-07', 'tractions', 'tirage-vertical-poulie');   // « 57x10 » = tirage machine, pas 57 kg de lest
+    move('2011-10-20', 'squat-1-pied', 'chaise-quadriceps');      // « (90x15) ext » = leg extension
+    ['2020-03-13', '2020-03-17'].forEach(d => { const f = find(d, 'tirage-vertical-poulie'); if (f) f.en.sets = [{ w: 80, r: 10 }]; }); // « 80x80x10 »
+    const v = find('2012-06-08', 'obliques-inclines');            // « 47.85 ml/o2/kg » = VO2max, pas des reps
+    if (v) { v.s.entries = v.s.entries.filter(x => x !== v.en); v.s.note = [v.s.note, 'VO2max 47,85 ml/kg/min'].filter(Boolean).join(' · '); }
+  } },
+];
 
 function migrate(st) {
   st.meta = st.meta || {};
@@ -73,6 +102,9 @@ function migrate(st) {
   const done = new Set(st.meta.migrations || []);
   for (const m of MIGRATIONS) if (!done.has(m.id)) { m.run(st); done.add(m.id); }
   st.meta.migrations = [...done];
+  const fx = new Set(st.meta.fixes || []);
+  for (const f of DATA_FIXES) if (!fx.has(f.id)) { f.run(st); fx.add(f.id); }
+  st.meta.fixes = [...fx];
   if (st.draft === undefined) st.draft = null;
   return st;
 }
@@ -108,9 +140,11 @@ export async function init() {
     const seed = await loadSeed();
     state = seed ? fromSeed(seed) : emptyState();
   }
+  const before = JSON.stringify([state.meta?.migrations, state.meta?.fixes]);
   migrate(state);
   sortSessions();
-  write();
+  // une mise à jour a modifié tes données (programme, corrections) → on l'enregistre aussi en ligne
+  if (state.meta.programApplied && before !== JSON.stringify([state.meta.migrations, state.meta.fixes]) && before !== '[null,null]') persist(true); else write();
   return state;
 }
 

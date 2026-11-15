@@ -72,12 +72,32 @@ export function history() {
       byEx.get(e.id).push({ date: s.date, perf: p, entry: en, session: s });
     }
   }
-  // records cumulés
-  for (const arr of byEx.values()) {
-    let pr = 0;
-    for (const h of arr) { h.prBefore = pr; h.isPR = h.perf > pr * 1.0001 && pr > 0; pr = Math.max(pr, h.perf); h.prAfter = pr; }
+  // valeurs aberrantes (erreur de saisie) : > 130 % du meilleur des 8 séances avant ET après → écartées des records
+  const suspects = new Map();
+  for (const [id, arr] of byEx) {
+    const bad = new Set();
+    arr.forEach((h, i) => {
+      if (h.entry.ok) return; // confirmé par toi
+      const nb = arr.slice(Math.max(0, i - 8), i).concat(arr.slice(i + 1, i + 9)).map(x => x.perf);
+      if (nb.length >= 4 && h.perf > 1.3 * Math.max(...nb)) bad.add(h);
+    });
+    if (bad.size) { suspects.set(id, [...bad]); byEx.set(id, arr.filter(h => !bad.has(h))); }
   }
-  cache = { byEx };
+  // records : absolu (meilleur de tous les temps) et de reprise (meilleur depuis la dernière pause)
+  const starts = breaks().map(b => b.to);
+  const segOf = d => { let k = 0; for (const t of starts) if (t <= d) k++; return k; };
+  for (const arr of byEx.values()) {
+    let pr = 0, seg = -1, segPr = 0;
+    for (const h of arr) {
+      const sg = segOf(h.date);
+      if (sg !== seg) { seg = sg; segPr = 0; }
+      h.prBefore = pr; h.segBefore = segPr;
+      h.isPR = h.perf > pr * 1.0001 && pr > 0;
+      h.isSegPR = !h.isPR && h.perf > segPr * 1.0001 && segPr > 0;
+      pr = Math.max(pr, h.perf); segPr = Math.max(segPr, h.perf); h.prAfter = pr;
+    }
+  }
+  cache = { byEx, suspects };
   cacheKey = key();
   return cache;
 }
@@ -91,6 +111,22 @@ export function exStats(id) {
   const level = last.perf / best.perf * 100;
   return { arr, n: arr.length, last, best, level, gap: best.perf - last.perf, gapPct: (best.perf / last.perf - 1) * 100, recent: arr.slice(-3) };
 }
+
+/** Une performance (en cours de séance) bat-elle un record ? → 'abs' (de tous les temps) | 'rep' (de reprise) | null */
+export function recordCheck(e, perf, date, sessionId) {
+  if (!(perf > 0)) return null;
+  const arr = (history().byEx.get(e.id) || []).filter(h => h.session.id !== sessionId && h.date <= date);
+  if (!arr.length) return null;
+  const best = Math.max(...arr.map(h => h.perf));
+  if (perf > best * 1.0001) return { type: 'abs', prev: best };
+  const starts = breaks().map(b => b.to).filter(t => t <= date);
+  const from = starts.at(-1) || '0000';
+  const seg = arr.filter(h => h.date >= from);
+  if (!seg.length) return null;
+  const sb = Math.max(...seg.map(h => h.perf));
+  return perf > sb * 1.0001 ? { type: 'rep', prev: sb } : null;
+}
+export const suspectsOf = id => history().suspects.get(id) || [];
 
 // ---------------------------------------------------------------- pauses
 export function breaks(minDays) {
@@ -108,9 +144,9 @@ export function breaks(minDays) {
 /** Courbe lissée : meilleure performance sur une fenêtre glissante (jours). */
 export function rollingMax(arr, days = 28) {
   return arr.map((h, i) => {
-    let m = h.perf, pr = h.isPR;
+    let m = h.perf, pr = h.isPR, rep = h.isSegPR;
     for (let j = i - 1; j >= 0 && daysBetween(arr[j].date, h.date) <= days; j--) m = Math.max(m, arr[j].perf);
-    return { date: h.date, y: m, pr, label: h.label };
+    return { date: h.date, y: m, pr, rep: rep && m === h.perf, label: h.label };
   });
 }
 export function rollingMean(arr, n = 5) {

@@ -83,7 +83,7 @@ export function lineChart(host, opts) {
   // points bruts (discrets)
   for (const p of opts.scatter || []) if (toD(p.date).getTime() >= x0) el('circle', { cx: X(toD(p.date).getTime()), cy: Y(p.y), r: 1.8, class: 'scatter' }, svg);
   // records
-  for (const p of pts) if (p.pr) el('circle', { cx: X(toD(p.date).getTime()), cy: Y(p.y), r: 3.2, class: 'pr-dot' }, svg);
+  for (const p of pts) if (p.pr || p.rep) el('circle', { cx: X(toD(p.date).getTime()), cy: Y(p.y), r: p.pr ? 3.4 : 2.8, class: p.pr ? 'pr-dot' : 'rep-dot' }, svg);
   const last = pts.at(-1);
   el('circle', { cx: X(toD(last.date).getTime()), cy: Y(last.y), r: 4.5, class: 'last-dot', stroke: opts.color || 'var(--series-1)' }, svg);
 
