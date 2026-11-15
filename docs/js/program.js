@@ -52,3 +52,12 @@ export const TYPES = {
 };
 
 export const CATEGORIES = ['Board-off', 'Abdos', 'Dos', 'Pecs', 'Épaules', 'Biceps', 'Triceps', 'Jambes', 'Cardio', 'Autre'];
+
+// Recommandations complémentaires (analyse) — proposées hors programme, à activer d'un tap.
+export const EXTRA = [
+  { id: 'tuck-hold', name: 'Tuck hold suspendu', category: 'Board-off', equip: 'bodyweight', type: 'time', days: ['BO'], sets: 3, timeMin: 10, timeMax: 20, cue: 'Genoux au-dessus des hanches · clé de la version poignée' },
+  { id: 'psoas-march', name: 'Psoas march élastique', category: 'Board-off', equip: 'band', type: 'reps', days: ['A'], sets: 3, repMin: 6, repMax: 10, cue: 'Allongé · hanche > 100° · maintien 3 s' },
+  { id: 'tucks-explosifs', name: 'Tucks suspendus explosifs', category: 'Board-off', equip: 'bodyweight', type: 'reps', days: ['BO'], sets: 3, repMin: 3, repMax: 6, cue: 'Semaines 5-8 · vitesse max, descente contrôlée' },
+  { id: 'compression-pike', name: 'Compression active pike', category: 'Board-off', equip: 'bodyweight', type: 'time', days: ['A'], sets: 3, timeMin: 5, timeMax: 15, cue: 'Assis, bras tendus, décoller les talons' },
+  { id: 'iso-coude-90', name: 'Isométrique coude 90°', category: 'Biceps', equip: 'db1', type: 'time', days: ['B'], sets: 5, timeMin: 30, timeMax: 45, cue: 'Charge lourde · antalgique tendon' },
+];

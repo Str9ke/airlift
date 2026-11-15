@@ -1,5 +1,5 @@
 // Persistence: localStorage + miroir natif (Android) + seed initial.
-import { PROGRAM, EQUIP } from './program.js';
+import { PROGRAM, EXTRA, EQUIP } from './program.js';
 
 const KEY = 'airlift.v1';
 const native = () => (typeof window !== 'undefined' && window.AirLiftNative) || null;
@@ -39,6 +39,8 @@ function mergeProgram(st) {
       st.exercises.push(normalizeExercise({ ...p, active: true, order: i }, i));
     }
   });
+  if (!st.meta.extraMerged) EXTRA.forEach((p, i) => { if (!byId.has(p.id)) st.exercises.push(normalizeExercise({ ...p, active: false, order: 500 + i }, i)); });
+  st.meta.extraMerged = true;
   st.meta.programMerged = true;
 }
 
