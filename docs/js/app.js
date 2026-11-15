@@ -7,7 +7,7 @@ import { lineChart, sparkline, fdate } from './charts.js';
 import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);

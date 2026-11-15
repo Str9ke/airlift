@@ -27,6 +27,8 @@ function emptyState() {
   };
 }
 
+const OLD_DAYS = { A: 'mar', BO: 'ven', B: 'dim' }; // jours de la 1.0.0
+
 export function normalizeExercise(e, i = 0) {
   const eq = EQUIP[e.equip] || EQUIP.machine;
   return {
@@ -34,13 +36,15 @@ export function normalizeExercise(e, i = 0) {
     equip: e.equip || 'machine', type: e.type || 'load',
     inc: e.inc ?? eq.inc, sets: e.sets ?? 2,
     repMin: e.repMin ?? 8, repMax: e.repMax ?? 12, timeMin: e.timeMin ?? 20, timeMax: e.timeMax ?? 45,
-    days: e.days || [], active: e.active ?? false, order: e.order ?? 1000 + i,
+    days: (e.days || []).map(d => OLD_DAYS[d] || d), active: e.active ?? false, order: e.order ?? 1000 + i,
     cue: e.cue || '', notes: e.notes || '', plan: e.plan || null, img: e.img ?? null,
   };
 }
 
 /** Première installation uniquement : applique le programme par défaut. */
 function applyDefaultProgram(st) {
+  const ids = new Set(PROGRAM.map(p => p.id));
+  st.exercises.forEach(e => { if (!ids.has(e.id)) e.active = false; }); // ancien programme (1.0.0) rangé dans « anciens »
   const byId = new Map(st.exercises.map(e => [e.id, e]));
   PROGRAM.forEach((p, i) => {
     const cur = byId.get(p.id);
