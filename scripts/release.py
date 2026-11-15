@@ -27,7 +27,7 @@ if apk:
     (out / 'airlift.apk').write_bytes((root / 'android/app/build/outputs/apk/release/app-release.apk').read_bytes())
     (docs / 'android.json').write_text(json.dumps({'versionCode': code, 'versionName': v, 'notes': notes,
         'apk': 'https://github.com/Str9ke/airlift/releases/latest/download/airlift.apk'}, ensure_ascii=False, indent=1), encoding='utf-8')
-run('git', 'add', '-A'); run('git', 'commit', '-m', f'AirLift {v}' + (f' — {notes}' if notes else ''))
+run('git', 'add', '-A'); run('git', 'commit', '-m', f'AirLift {v}' + (f' — {notes}' if notes else '') + '\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')
 run('git', 'push')
 if apk:
     run('gh', 'release', 'create', 'v' + v, str(root / 'dist' / 'airlift.apk'), '--title', f'AirLift {v}', '--notes', notes or v)
