@@ -265,3 +265,11 @@ td.r, th.r { text-align: right; }
 .pick-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px; border-radius: 12px; background: var(--card); margin-bottom: 6px; }
 .pick-row small { display: block; color: var(--text2); font-size: 12px; }
 .pick-plus svg { width: 22px; height: 22px; fill: none; stroke: var(--accent); stroke-width: 2.2; }
+
+/* ---------- charge du jour */
+.day-load { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; margin: 2px 0 10px; font-size: 13px; color: var(--text2); }
+.day-load b { color: var(--text); font-size: 15px; }
+.day-load small { flex-basis: 100%; font-size: 11.5px; color: var(--muted); }
+
+.check-row { display: flex; gap: 10px; align-items: center; margin: 4px 0 12px; font-size: 14px; }
+.check-row input { width: 20px; height: 20px; }

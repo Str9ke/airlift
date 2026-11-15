@@ -7,7 +7,7 @@ import { lineChart, sparkline, fdate } from './charts.js';
 import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -98,8 +98,9 @@ function render() {
 const setsOn = (e, day) => (day && e.daySets?.[day]) ?? e.sets;
 function rangeOf(e, day = null) {
   const per = !day && e.daySets && e.days.length > 1 ? e.days.map(d => setsOn(e, d)).join('/') : setsOn(e, day);
-  if (e.type === 'time') return `${per}×${e.timeMin}-${e.timeMax}s`;
-  return `${per}×${e.repMin}${e.repMax !== e.repMin ? '-' + e.repMax : ''}`;
+  const sd = e.side ? ' /côté' : '';
+  if (e.type === 'time' || e.type === 'load_time') return `${per}×${e.timeMin}-${e.timeMax}s${sd}`;
+  return `${per}×${e.repMin}${e.repMax !== e.repMin ? '-' + e.repMax : ''}${sd}`;
 }
 
 function exRow(e, archived = false) {
@@ -157,6 +158,7 @@ function renderProg(v) {
       <button class="chip ${ui.day === 'all' ? 'on' : ''}" data-day="all">Tous (${active.length})</button>
       ${DAYS_().map(d => `<button class="chip ${ui.day === d.id ? 'on' : ''}" data-day="${d.id}">${esc(d.label)}</button>`).join('')}
     </div>
+    ${(() => { const L = C.dayLoad(ui.day === 'all' ? null : ui.day); return `<div class="day-load"><span><b>${L.n}</b> exercices</span><span><b>${L.sets}</b> séries</span><span>≈ <b>${L.min >= 60 ? Math.floor(L.min / 60) + ' h ' + String(L.min % 60).padStart(2, '0') : L.min + ' min'}</b>${ui.day === 'all' ? ' / semaine' : ''}</span>${ui.day === 'all' ? `<small>${DAYS_().map(d => { const x = C.dayLoad(d.id); return `${esc(d.short)} ${x.sets} séries · ${x.min} min`; }).join(' — ')}</small>` : ''}</div>`; })()}
     <div class="row" style="margin-bottom:8px">
       <div class="grow sub" style="margin:0">Maintiens <b>⋮⋮</b> et glisse pour réordonner.</div>
       <button class="btn sm primary" id="start-day">Démarrer ${ui.day === 'all' ? 'la séance' : esc(dayOf(ui.day)?.short || '')}</button>
@@ -308,6 +310,7 @@ function editExercise(e) {
       <div class="field" data-time><label>Durée max (s)</label><input id="f-tmax" type="number" inputmode="numeric" value="${d.timeMax}"></div>
     </div>
     <div class="field" data-inc><label>Incrément de charge (kg)</label><input id="f-inc" type="number" inputmode="decimal" step="0.25" value="${d.inc}"><div class="hint">Quand tu atteins les reps max sur une série, la charge suivante = charge + incrément${d.equip === 'db2' ? ' (par haltère)' : ''}.</div></div>
+    <label class="check-row"><input type="checkbox" id="f-side" ${d.side ? 'checked' : ''}> Par côté (un bras / une jambe à la fois : séries comptées ×2)</label>
     <div class="field"><label>Catégorie</label><select id="f-cat">${CATEGORIES.map(c => `<option ${c === d.category ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Consigne / repère</label><input id="f-cue" value="${esc(d.cue)}" placeholder="ex. descente 3 s"></div>
     <button class="btn primary block" id="f-save">${isNew ? 'Ajouter au programme' : 'Enregistrer'}</button>`);
@@ -318,8 +321,9 @@ function editExercise(e) {
   });
   const vis = () => {
     const t = $('#f-type .on', sh)?.dataset.v;
-    $$('[data-rep]', sh).forEach(x => x.style.display = t === 'time' ? 'none' : '');
-    $$('[data-time]', sh).forEach(x => x.style.display = t === 'time' ? '' : 'none');
+    const tt = t === 'time' || t === 'load_time';
+    $$('[data-rep]', sh).forEach(x => x.style.display = tt ? 'none' : '');
+    $$('[data-time]', sh).forEach(x => x.style.display = tt ? '' : 'none');
     $('[data-inc]', sh).style.display = (t === 'reps' || t === 'time') ? 'none' : '';
   };
   seg('f-days', true); seg('f-equip'); seg('f-type'); vis();
@@ -332,7 +336,7 @@ function editExercise(e) {
       name, days: $$('#f-days .on', sh).map(b => b.dataset.v), equip: $('#f-equip .on', sh).dataset.v, type: $('#f-type .on', sh).dataset.v,
       sets: +$('#f-sets', sh).value || 3, repMin: +$('#f-rmin', sh).value || 8, repMax: +$('#f-rmax', sh).value || 12,
       timeMin: +$('#f-tmin', sh).value || 20, timeMax: +$('#f-tmax', sh).value || 45, inc: +$('#f-inc', sh).value || 0,
-      category: $('#f-cat', sh).value, cue: $('#f-cue', sh).value, img: d.img ?? t.img ?? null,
+      category: $('#f-cat', sh).value, cue: $('#f-cue', sh).value, side: $('#f-side', sh).checked, img: d.img ?? t.img ?? null,
     });
 
     if (t.repMax < t.repMin) t.repMax = t.repMin;
@@ -347,12 +351,12 @@ function editExercise(e) {
 function editPlan(e) {
   const sg = C.suggest({ ...e, plan: null });
   const cur = e.plan?.manual ? e.plan.sets : sg.sets;
-  const time = e.type === 'time', repsOnly = e.type === 'reps';
+  const time = e.type === 'time', repsOnly = e.type === 'reps', k2 = e.type === 'load_time' ? 't' : 'r';
   const rows = Array.from({ length: e.sets }, (_, i) => cur[i] || cur.at(-1) || {});
   const sh = sheet(`<div class="sheet-head"><h2>Prochaine fois · ${esc(e.name)}</h2><button class="icon-btn" data-close>${ICON.x}</button></div>
     <p class="sub">Suggestion automatique : <b>${esc(sg.sets.map(s => C.fmtSet(e, s)).join(' · '))}</b>${sg.note ? '<br>' + esc(sg.note) : ''}</p>
-    <div class="col-h ${time || repsOnly ? 'time' : ''}"><span>#</span>${time ? '<span>secondes</span>' : repsOnly ? '<span>reps</span>' : `<span>${unitW(e)}</span><span>reps</span>`}<span></span></div>
-    ${rows.map((s, i) => `<div class="set-row ${time || repsOnly ? 'time' : ''}" data-i="${i}"><span class="n">${i + 1}</span>${time ? `<input data-k="t" type="number" inputmode="numeric" value="${s.t ?? ''}">` : repsOnly ? `<input data-k="r" type="number" inputmode="numeric" value="${s.r ?? ''}">` : `<input data-k="w" type="number" inputmode="decimal" step="0.25" value="${s.w ?? ''}"><input data-k="r" type="number" inputmode="numeric" value="${s.r ?? ''}">`}<span></span></div>`).join('')}
+    <div class="col-h ${time || repsOnly ? 'time' : ''}"><span>#</span>${time ? '<span>secondes</span>' : repsOnly ? '<span>reps</span>' : `<span>${unitW(e)}</span><span>${k2 === 't' ? 'secondes' : 'reps'}</span>`}<span></span></div>
+    ${rows.map((s, i) => `<div class="set-row ${time || repsOnly ? 'time' : ''}" data-i="${i}"><span class="n">${i + 1}</span>${time ? `<input data-k="t" type="number" inputmode="numeric" value="${s.t ?? ''}">` : repsOnly ? `<input data-k="r" type="number" inputmode="numeric" value="${s.r ?? ''}">` : `<input data-k="w" type="number" inputmode="decimal" step="0.25" value="${s.w ?? ''}"><input data-k="${k2}" type="number" inputmode="numeric" value="${s[k2] ?? ''}">`}<span></span></div>`).join('')}
     <div class="field"><label>Note</label><input id="p-note" value="${esc(e.plan?.note || '')}" placeholder="ex. passer aux haltères de 14"></div>
     <div class="grid2"><button class="btn" id="p-auto">Revenir à l'auto</button><button class="btn primary" id="p-save">Enregistrer</button></div>`);
   $('#p-auto', sh).onclick = () => { e.plan = null; commit(); sh.close(); render(); toast('Suggestion automatique rétablie'); };
@@ -418,7 +422,7 @@ function openExercise(id) {
 
 // ---------------------------------------------------------------- réglages rapides de l'exercice (séries, reps, jours)
 function configCard(e) {
-  const time = e.type === 'time';
+  const time = e.type === 'time' || e.type === 'load_time';
   const step = (k, v, lbl) => `<div class="stepper" data-k="${k}"><span class="st-l">${lbl}</span><button data-d="-1" aria-label="moins">−</button><b>${v}</b><button data-d="1" aria-label="plus">+</button></div>`;
   return `<div class="card cfg" style="margin-top:12px"><b>Dans ton programme</b>
     <div class="cfg-days">${DAYS_().map(d => `<button class="chip ${e.days.includes(d.id) ? 'on' : ''}" data-cday="${d.id}">${esc(d.short)}</button>`).join('')}</div>
@@ -543,8 +547,8 @@ function sessionEditor(host, d, onChange, { suggest = false, onSet = null } = {}
   host.innerHTML = d.entries.map((en, ei) => {
     const e = getEx(en.ex); if (!e) return '';
     const st = C.exStats(e.id);
-    const sg = suggest ? C.suggest(e) : { sets: [] };
-    const time = e.type === 'time', repsOnly = e.type === 'reps';
+    const sg = suggest ? C.suggest(e, d.day) : { sets: [] };
+    const time = e.type === 'time', repsOnly = e.type === 'reps', k2 = e.type === 'load_time' ? 't' : 'r';
     const prev = st.arr.filter(h => h.session.id !== d.id).slice(-3);
     const done = en.sets.length && en.sets.every(s => s.done);
     return `<div class="log-ex ${done ? 'done' : ''}" data-ei="${ei}">
@@ -552,11 +556,11 @@ function sessionEditor(host, d, onChange, { suggest = false, onSet = null } = {}
       ${e.cue ? `<div class="cue">${esc(e.cue)}</div>` : ''}
       ${prev.length ? `<div class="prev">${prev.map(h => `${fdate(h.date).replace(/ \d{4}$/, '')} : ${esc(C.fmtEntry(e, h.entry))}`).join('<br>')}</div>` : '<div class="prev">Première fois — note ta charge de départ.</div>'}
       ${sg.note ? `<div class="sugg">${sg.manual ? '✎ ' : '▲ '}${esc(sg.note)}</div>` : ''}
-      <div class="col-h ${time || repsOnly ? 'time' : ''}"><span>#</span>${time ? '<span>secondes</span>' : repsOnly ? '<span>reps</span>' : `<span>${unitW(e)}</span><span>reps</span>`}<span>✓</span></div>
+      <div class="col-h ${time || repsOnly ? 'time' : ''}"><span>#</span>${time ? '<span>secondes</span>' : repsOnly ? '<span>reps</span>' : `<span>${unitW(e)}${e.side ? ' · par côté' : ''}</span><span>${k2 === 't' ? 'secondes' : 'reps'}</span>`}<span>✓</span></div>
       ${en.sets.map((s, si) => { const p = sg.sets[si] || sg.sets.at(-1) || {}; return `<div class="set-row ${time || repsOnly ? 'time' : ''}" data-si="${si}"><span class="n">${si + 1}</span>
         ${time ? `<input data-k="t" type="number" inputmode="numeric" value="${s.t ?? ''}" placeholder="${p.t ?? e.timeMin}">`
         : repsOnly ? `<input data-k="r" type="number" inputmode="numeric" value="${s.r ?? ''}" placeholder="${p.r ?? e.repMin}">`
-        : `<input data-k="w" type="number" inputmode="decimal" step="0.25" value="${s.w ?? ''}" placeholder="${p.w ?? ''}"><input data-k="r" type="number" inputmode="numeric" value="${s.r ?? ''}" placeholder="${p.r ?? e.repMin}">`}
+        : `<input data-k="w" type="number" inputmode="decimal" step="0.25" value="${s.w ?? ''}" placeholder="${p.w ?? ''}"><input data-k="${k2}" type="number" inputmode="numeric" value="${s[k2] ?? ''}" placeholder="${p[k2] ?? (k2 === 't' ? e.timeMin : e.repMin)}">`}
         <button class="chk ${s.done ? 'on' : ''}" data-chk aria-label="Série faite">${ICON.check}</button></div>`; }).join('')}
       <div class="row"><button class="btn sm" data-addset>+ Série</button>${en.sets.length > 1 ? '<button class="btn sm" data-delset>− Série</button>' : ''}<span class="grow"></span><button class="btn sm" data-plan>Prochaine fois…</button></div>
     </div>`;

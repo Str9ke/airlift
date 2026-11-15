@@ -38,7 +38,7 @@ export function normalizeExercise(e, i = 0) {
     repMin: e.repMin ?? 8, repMax: e.repMax ?? 12, timeMin: e.timeMin ?? 20, timeMax: e.timeMax ?? 45,
     days: (e.days || []).map(d => OLD_DAYS[d] || d), active: e.active ?? false, order: e.order ?? 1000 + i,
     cue: e.cue || '', notes: e.notes || '', plan: e.plan || null, img: e.img ?? null,
-    daySets: e.daySets || null, userEdited: !!e.userEdited,
+    daySets: e.daySets || null, userEdited: !!e.userEdited, side: !!e.side,
   };
 }
 
@@ -78,6 +78,16 @@ const MIGRATIONS = [
     EXTRA.forEach((p, i) => { if (!byId.has(p.id)) st.exercises.push(normalizeExercise({ ...p, active: false, order: 500 + i }, i)); });
   } },
 ];
+
+MIGRATIONS.push({ id: '2026-11-16-programme-1.4', run(st) {
+  const P = new Map(PROGRAM.map(p => [p.id, p]));
+  const byId = new Map(st.exercises.map(e => [e.id, e]));
+  for (const id of ['deltoide-lateral', 'psoas-march', 'pallof-press']) { const e = byId.get(id); if (e) e.side = true; }
+  const sq = byId.get('squat'); if (sq && !sq.userEdited) { sq.daySets = null; sq.cue = P.get('squat').cue; }
+  const iso = byId.get('iso-deltoide-90'); if (iso && !iso.userEdited) Object.assign(iso, { type: 'load_time', timeMin: 20, timeMax: 40, cue: P.get('iso-deltoide-90').cue });
+  if (!byId.has('tenue-barre-1-main')) st.exercises.push(normalizeExercise({ ...P.get('tenue-barre-1-main'), active: true, order: 1.5 }));
+  if (!st.meta.userOrdered) { const order = new Map(PROGRAM.map((p, i) => [p.id, i])); st.exercises.forEach(e => { if (order.has(e.id)) e.order = order.get(e.id); }); }
+} });
 
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [

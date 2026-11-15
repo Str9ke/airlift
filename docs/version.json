@@ -1,4 +1,4 @@
 {
- "version": "1.3.0",
- "notes": "Records de reprise et records absolus, réglage séries/reps/jours sur chaque exercice, ajout d'exercices par jour, bouton retour, squat et deadlift 2x/semaine, nouveaux curls, bûcheron, corrections de données"
+ "version": "1.4.0",
+ "notes": "Contrôle de barre à une main (gainage en vol), type charge × durée, durée estimée et séries par jour et par semaine"
 }

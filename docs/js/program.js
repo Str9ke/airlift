@@ -23,28 +23,29 @@ export const PROGRAM = [
   // Geste board-off en premier (vendredi) : qualité motrice quand tu es frais
   { id: 'harnais-planche', name: 'Board-off harnais + planche', category: 'Board-off', equip: 'bodyweight', type: 'reps', days: ['ven'], sets: 3, repMin: 3, repMax: 3, cue: '3 reps de qualité · 90 s de récup · jamais à l\'épuisement' },
   { id: 'strap-finding-drill', name: 'Strap finding drill', category: 'Board-off', equip: 'bodyweight', type: 'reps', days: ['ven'], sets: 2, repMin: 5, repMax: 10, cue: 'Réussites sur 10 · sans regarder le pied' },
+  { id: 'tenue-barre-1-main', name: 'Contrôle de barre à une main', category: 'Board-off', equip: 'barbell', type: 'load_time', days: ['ven'], sets: 2, timeMin: 20, timeMax: 40, side: true, cue: 'Barre tenue au milieu, une main, bras fléchi devant le visage comme en vol · garde-la horizontale, tronc gainé · l\'autre main va chercher le genou · par main' },
   // Mardi / dimanche — force
-  { id: 'squat', name: 'Squat', category: 'Jambes', equip: 'barbell', type: 'load', days: ['mar', 'dim'], sets: 2, daySets: { dim: 1 }, repMin: 8, repMax: 12, cue: SECU + ' · dimanche : 1 série' },
+  { id: 'squat', name: 'Squat', category: 'Jambes', equip: 'barbell', type: 'load', days: ['mar', 'dim'], sets: 2, repMin: 8, repMax: 12, cue: SECU },
   { id: 'deadlift', name: 'Deadlift', category: 'Jambes', equip: 'barbell', type: 'load', days: ['mar', 'dim'], sets: 2, daySets: { mar: 1 }, repMin: 6, repMax: 12, cue: SECU + ' · mardi : 1 série technique' },
   { id: 'developpe-couche', name: 'Développé couché', category: 'Pecs', equip: 'barbell', type: 'load', days: ['mar'], sets: 2, repMin: 8, repMax: 12, cue: ECHEC + ' (avec pareur ou sécurités)' },
   { id: 'tractions', name: 'Tractions', category: 'Dos', equip: 'bodyweight', type: 'bw_load', days: ['mar', 'dim'], sets: 3, repMin: 4, repMax: 10, cue: 'Strictes · lest en kg (0 = poids du corps) · priorité n°1 : 3 séries' },
   { id: 'tirage-vertical-poulie', name: 'Tirage vertical machine', category: 'Dos', equip: 'machine', type: 'load', days: ['mar', 'dim'], sets: 2, repMin: 8, repMax: 12, cue: 'Juste après les tractions · ' + ECHEC.toLowerCase() },
   { id: 'dips', name: 'Dips', category: 'Pecs', equip: 'bodyweight', type: 'bw_load', days: ['mar', 'dim'], sets: 2, repMin: 8, repMax: 12, cue: 'Lest en kg · ' + ECHEC.toLowerCase() },
   { id: 'trapeze-moyen-incline', name: 'Tirage penché haltères (trapèze moyen)', category: 'Dos', equip: 'db2t', type: 'load', days: ['dim'], sets: 2, repMin: 8, repMax: 12, cue: 'Penché en avant, coudes vers l\'extérieur, serrer les omoplates · poids total des 2 haltères' },
-  { id: 'deltoide-lateral', name: 'Élévations latérales', category: 'Épaules', equip: 'db1', type: 'load', days: ['mar', 'ven'], sets: 2, repMin: 8, repMax: 15, cue: 'Un bras à la fois · ' + ECHEC.toLowerCase() },
+  { id: 'deltoide-lateral', name: 'Élévations latérales', category: 'Épaules', equip: 'db1', type: 'load', days: ['mar', 'ven'], sets: 2, repMin: 8, repMax: 15, cue: 'Un bras à la fois · ' + ECHEC.toLowerCase(), side: true },
   { id: 'deltoide-anterieur', name: 'Élévations frontales', category: 'Épaules', equip: 'db2', type: 'load', days: ['dim'], sets: 1, repMin: 8, repMax: 15, cue: '1 série à l\'échec : l\'avant de l\'épaule travaille déjà au couché et aux dips' },
-  { id: 'iso-deltoide-90', name: 'Maintien bras à 90° (deltoïdes)', category: 'Épaules', equip: 'db2', type: 'time', days: ['dim'], sets: 2, timeMin: 20, timeMax: 45, cue: 'Haltères bras tendus à l\'horizontale · note la charge dans la note de séance' },
+  { id: 'iso-deltoide-90', name: 'Maintien bras à 90° (deltoïdes)', category: 'Épaules', equip: 'db2', type: 'load_time', days: ['dim'], sets: 2, timeMin: 20, timeMax: 40, cue: 'Haltères bras tendus à l\'horizontale · kg par haltère' },
   { id: 'curl-inverse', name: 'Curl en pronation (barre EZ)', category: 'Biceps', equip: 'barbell', type: 'load', days: ['mar'], sets: 2, repMin: 10, repMax: 15, cue: 'Prise par-dessus, comme sur la barre de kite · descente 3 s' },
   { id: 'curl-biceps-incline', name: 'Curl incliné haltères', category: 'Biceps', equip: 'db2', type: 'load', days: ['dim'], sets: 2, repMin: 8, repMax: 12, cue: 'Banc 45-60°, bras pendants en arrière (biceps étiré) · descente 3-4 s · ' + ECHEC.toLowerCase() },
   { id: 'hanging-leg-raises', name: 'Relevés de jambes suspendu', category: 'Board-off', equip: 'bodyweight', type: 'reps', days: ['mar'], sets: 3, repMin: 6, repMax: 12, cue: 'Bassin enroulé en haut, pas de balancier · priorité board-off' },
   { id: 'tuck-hold', name: 'Tuck hold suspendu', category: 'Board-off', equip: 'bodyweight', type: 'time', days: ['mar', 'ven'], sets: 2, timeMin: 10, timeMax: 20, cue: 'Genoux au-dessus des hanches · clé de la version poignée' },
   { id: 'releve-jambes-banc-45', name: 'Relevé jambes banc 45°', category: 'Abdos', equip: 'bodyweight', type: 'reps', days: ['dim'], sets: 2, repMin: 8, repMax: 15 },
   // Vendredi — spécifique board-off
-  { id: 'psoas-march', name: 'Flexion de hanche poulie (couché)', category: 'Board-off', equip: 'machine', type: 'load', days: ['ven'], sets: 2, repMin: 6, repMax: 10, cue: 'Couché sur le dos, poulie basse à la cheville · genou au-delà de 90°, vers la poitrine · maintien 2 s en haut · par jambe' },
+  { id: 'psoas-march', name: 'Flexion de hanche poulie (couché)', category: 'Board-off', equip: 'machine', type: 'load', days: ['ven'], sets: 2, repMin: 6, repMax: 10, cue: 'Couché sur le dos, poulie basse à la cheville · genou au-delà de 90°, vers la poitrine · maintien 2 s en haut · par jambe', side: true },
   { id: 'tucks-explosifs', name: 'Tucks suspendus explosifs', category: 'Board-off', equip: 'bodyweight', type: 'reps', days: ['ven'], sets: 2, repMin: 3, repMax: 6, cue: 'Genoux PLIÉS · genoux à la poitrine puis enroule le bassin : pieds le plus haut possible (objectif hauteur de la tête) · vitesse max, descente contrôlée' },
   { id: 'maintien-jambes-90', name: 'Maintien jambes à 90°', category: 'Board-off', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 10, timeMax: 30 },
   { id: 'compression-pike', name: 'Compression active pike', category: 'Board-off', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 3, timeMax: 10, cue: 'Assis jambes tendues, mains au sol à côté des cuisses : pousse dans les mains et décolle les talons de 2-5 cm · tiens (s)' },
-  { id: 'pallof-press', name: 'Bûcheron poulie haute → bas', category: 'Abdos', equip: 'machine', type: 'load', days: ['ven'], sets: 2, repMin: 10, repMax: 15, cue: 'Bras tendus, diagonale vers la hanche opposée en enroulant le tronc · par côté' },
+  { id: 'pallof-press', name: 'Bûcheron poulie haute → bas', category: 'Abdos', equip: 'machine', type: 'load', days: ['ven'], sets: 2, repMin: 10, repMax: 15, cue: 'Bras tendus, diagonale vers la hanche opposée en enroulant le tronc · par côté', side: true },
   { id: 'rotation-externe-epaule', name: 'Rotation externe épaule', category: 'Épaules', equip: 'band', type: 'reps', days: ['dim'], sets: 1, repMin: 12, repMax: 20, cue: 'Prévention épaule (kite) · 1 série suffit' },
 ];
 
@@ -67,6 +68,7 @@ export const TYPES = {
   assisted: 'Assistée (machine)',
   reps: 'Répétitions',
   time: 'Durée (s)',
+  load_time: 'Charge × durée',
 };
 
 export const CATEGORIES = ['Board-off', 'Abdos', 'Dos', 'Pecs', 'Épaules', 'Biceps', 'Triceps', 'Jambes', 'Cardio', 'Autre'];

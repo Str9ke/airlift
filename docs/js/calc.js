@@ -39,6 +39,8 @@ export function effLoad(e, set, date) {
 /** performance d'un set : 1RM estimé (kg) ou reps / secondes */
 export function setPerf(e, set, date) {
   if (e.type === 'time') return set.t || set.r || 0;
+  // charge tenue × durée : équivalent « kg tenus 30 s » (même logique qu'Epley, la durée remplace les reps)
+  if (e.type === 'load_time') return set.t ? (set.w || 0) * (1 + Math.min(set.t, 90) / 30) || set.t / 10 : 0;
   if (e.type === 'reps') return set.r || 0;
   if (set.r == null) return 0;
   if ((e.type === 'load') && !set.w) return 0;
@@ -52,7 +54,7 @@ export function entryPerf(e, entry, date) {
 }
 
 export const perfUnit = e => e.type === 'time' ? 's' : e.type === 'reps' ? 'reps' : 'kg';
-export const perfLabel = e => e.type === 'time' ? 'Meilleur temps' : e.type === 'reps' ? 'Meilleure série' : '1RM estimé';
+export const perfLabel = e => e.type === 'time' ? 'Meilleur temps' : e.type === 'reps' ? 'Meilleure série' : e.type === 'load_time' ? 'Charge × durée (équiv.)' : '1RM estimé';
 
 // ---------------------------------------------------------------- historique par exercice (mis en cache)
 let cache = null, cacheKey = '';
@@ -158,11 +160,11 @@ export const fmtDuration = d => d >= 365 ? `${fmt(d / 365, 1)} an${d >= 730 ? 's
 export function incOf(e) { return e.inc ?? EQUIP[e.equip]?.inc ?? 1; }
 
 /** Suggestion pour la prochaine séance, set par set. */
-export function suggest(e) {
+export function suggest(e, day = null) {
   if (e.plan && e.plan.manual && e.plan.sets?.length) return { sets: e.plan.sets, manual: true, note: e.plan.note || '' };
   const st = exStats(e.id);
   const last = st.last;
-  const n = e.sets || 2;
+  const n = (day && e.daySets?.[day]) || e.sets || 2;
   if (!last) return { sets: Array.from({ length: n }, () => ({})), note: 'Première séance : trouve ta charge de travail.' };
   const lastSets = last.entry.sets.filter(s => (s.r != null) || s.t != null);
   const out = [];
@@ -173,6 +175,12 @@ export function suggest(e) {
     if (e.type === 'time') {
       const t = s.t || s.r || e.timeMin;
       out.push({ t: t >= e.timeMax ? t : t + 5 });
+      continue;
+    }
+    if (e.type === 'load_time') { // double progression : durée max atteinte → charge +inc, retour à la durée min
+      const w = s.w ?? 0, t = s.t ?? e.timeMin;
+      if (t >= e.timeMax && inc > 0) { up = true; out.push({ w: round(w + inc, 0.5), t: e.timeMin, up: true }); }
+      else out.push({ w, t: Math.min(e.timeMax, t + 5) });
       continue;
     }
     if (e.type === 'reps' || inc === 0 || e.equip === 'band') {
@@ -197,13 +205,14 @@ export function suggest(e) {
       out.push({ w, r: r + 1 });
     }
   }
-  const note = up ? `Objectif atteint (${e.repMax} reps) → ${e.type === 'assisted' ? 'retire' : 'ajoute'} ${fmt(inc)} kg${e.equip === 'db2' ? ' par haltère (+' + fmt(inc * 2) + ' kg au total)' : e.equip === 'db2t' ? ' au total (+' + fmt(inc / 2) + ' kg par haltère)' : ''} sur les séries concernées.` : '';
+  const note = up && e.type === 'load_time' ? `Durée max atteinte (${e.timeMax} s) → ajoute ${fmt(inc)} kg et repars à ${e.timeMin} s.` : up ? `Objectif atteint (${e.repMax} reps) → ${e.type === 'assisted' ? 'retire' : 'ajoute'} ${fmt(inc)} kg${e.equip === 'db2' ? ' par haltère (+' + fmt(inc * 2) + ' kg au total)' : e.equip === 'db2t' ? ' au total (+' + fmt(inc / 2) + ' kg par haltère)' : ''} sur les séries concernées.` : '';
   return { sets: out, note };
 }
 
 export function fmtSet(e, s) {
   if (!s) return '';
   if (e.type === 'time') return `${fmt(s.t ?? s.r, 0)} s`;
+  if (e.type === 'load_time') return `${s.w != null ? fmt(s.w) + ' kg × ' : ''}${s.t != null ? fmt(s.t, 0) : '?'} s`;
   if (e.type === 'reps') return s.w ? `${fmt(s.w)}×${fmt(s.r, 0)}` : `${fmt(s.r, 0)}`;
   if (s.w == null && s.r != null) return `${fmt(s.r, 0)}`;
   const w = e.type === 'bw_load' ? (s.w ? `+${fmt(s.w)}` : 'PC') : e.type === 'assisted' ? `−${fmt(s.w)}` : fmt(s.w);
@@ -289,4 +298,22 @@ export function currentLevel() {
   if (!rows.length) return { level: null, rows };
   const level = rows.reduce((a, x) => a + x.st.level, 0) / rows.length;
   return { level, rows };
+}
+
+// ---------------------------------------------------------------- durée estimée d'une séance
+// Par série : temps d'effort + récupération. Gros mouvements 2 min 30 de récup, le reste 1 min 30,
+// gainages/maintiens 1 min. Exercice « par côté » = séries × 2. + 1 min de changement par exercice.
+const BIG = new Set(['squat', 'deadlift', 'developpe-couche', 'tractions', 'dips', 'tirage-vertical-poulie', 'harnais-planche']);
+export function estMinutes(e, day = null) {
+  const n = (day && e.daySets?.[day]) || e.sets || 2;
+  const work = e.type === 'time' || e.type === 'load_time' ? (e.timeMin + e.timeMax) / 2 : ((e.repMin + e.repMax) / 2) * 3.5;
+  const rest = BIG.has(e.id) ? 150 : (e.type === 'time' || e.type === 'load_time') ? 60 : 90;
+  return (n * ((e.side ? 2 : 1) * work + rest)) / 60 + 1; // par côté : les 2 côtés enchaînés, puis récup
+}
+export function dayLoad(day) {
+  const ex = S().exercises.filter(e => e.active && (!day || e.days.includes(day)));
+  const list = day ? ex.map(e => [e, day]) : ex.flatMap(e => e.days.map(d => [e, d]));
+  const sets = list.reduce((a, [e, d]) => a + ((e.daySets?.[d]) || e.sets) * (e.side ? 2 : 1), 0);
+  const warm = day ? (ex.some(e => BIG.has(e.id) && e.id !== 'harnais-planche') ? 8 : 4) : S().days.reduce((a, d) => a + (ex.some(e => e.days.includes(d.id) && BIG.has(e.id) && e.id !== 'harnais-planche') ? 8 : 4), 0);
+  return { n: day ? ex.length : list.length, sets, min: Math.round(list.reduce((a, [e, d]) => a + estMinutes(e, d), 0) + warm) };
 }
