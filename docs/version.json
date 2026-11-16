@@ -1,4 +1,4 @@
 {
- "version": "1.4.0",
- "notes": "Contrôle de barre à une main (gainage en vol), type charge × durée, durée estimée et séries par jour et par semaine"
+ "version": "1.5.0",
+ "notes": "Programme réorganisé (tractions et board-off en premier), supersets et repos par exercice, jeudi mobilité à la maison, correction de la validation des séries"
 }

@@ -300,20 +300,31 @@ export function currentLevel() {
   return { level, rows };
 }
 
-// ---------------------------------------------------------------- durée estimée d'une séance
-// Par série : temps d'effort + récupération. Gros mouvements 2 min 30 de récup, le reste 1 min 30,
-// gainages/maintiens 1 min. Exercice « par côté » = séries × 2. + 1 min de changement par exercice.
+// ---------------------------------------------------------------- repos & durée estimée d'une séance
 const BIG = new Set(['squat', 'deadlift', 'developpe-couche', 'tractions', 'dips', 'tirage-vertical-poulie', 'harnais-planche']);
-export function estMinutes(e, day = null) {
+export const SUPERSET_REST = 15;
+/** Repos conseillé après une série (s) : gros mouvements 2 min 30, isométries/étirements 1 min, le reste 1 min 30. */
+export function restFor(e, superset = false) {
+  if (superset) return SUPERSET_REST;
+  if (e.category === 'Mobilité') return 20;
+  if (BIG.has(e.id)) return 150;
+  if (e.type === 'time' || e.type === 'load_time') return 60;
+  return 90;
+}
+export function estMinutes(e, day = null, superset = false) {
   const n = (day && e.daySets?.[day]) || e.sets || 2;
   const work = e.type === 'time' || e.type === 'load_time' ? (e.timeMin + e.timeMax) / 2 : ((e.repMin + e.repMax) / 2) * 3.5;
-  const rest = BIG.has(e.id) ? 150 : (e.type === 'time' || e.type === 'load_time') ? 60 : 90;
-  return (n * ((e.side ? 2 : 1) * work + rest)) / 60 + 1; // par côté : les 2 côtés enchaînés, puis récup
+  return (n * ((e.side ? 2 : 1) * work + restFor(e, superset))) / 60 + (superset || e.category === 'Mobilité' ? 0.5 : 1); // par côté : les 2 côtés enchaînés, puis récup
+}
+/** Exercices d'un jour dans l'ordre, avec le superset effectif (= l'exercice suivant du jour existe). */
+export function dayList(day) {
+  const ex = S().exercises.filter(e => e.active && e.days.includes(day)).sort((a, b) => a.order - b.order);
+  return ex.map((e, i) => ({ e, day, superset: !!e.superset && i < ex.length - 1, next: e.superset ? ex[i + 1] : null }));
 }
 export function dayLoad(day) {
-  const ex = S().exercises.filter(e => e.active && (!day || e.days.includes(day)));
-  const list = day ? ex.map(e => [e, day]) : ex.flatMap(e => e.days.map(d => [e, d]));
-  const sets = list.reduce((a, [e, d]) => a + ((e.daySets?.[d]) || e.sets) * (e.side ? 2 : 1), 0);
-  const warm = day ? (ex.some(e => BIG.has(e.id) && e.id !== 'harnais-planche') ? 8 : 4) : S().days.reduce((a, d) => a + (ex.some(e => e.days.includes(d.id) && BIG.has(e.id) && e.id !== 'harnais-planche') ? 8 : 4), 0);
-  return { n: day ? ex.length : list.length, sets, min: Math.round(list.reduce((a, [e, d]) => a + estMinutes(e, d), 0) + warm) };
+  const days = day ? [day] : S().days.map(d => d.id);
+  const list = days.flatMap(dayList);
+  const sets = list.reduce((a, x) => a + ((x.e.daySets?.[x.day]) || x.e.sets) * (x.e.side ? 2 : 1), 0);
+  const warm = days.reduce((a, d) => { const l = dayList(d); if (!l.length || l.every(x => x.e.category === 'Mobilité')) return a; return a + (l.some(x => BIG.has(x.e.id) && x.e.id !== 'harnais-planche') ? 8 : 4); }, 0);
+  return { n: list.length, sets, min: Math.round(list.reduce((a, x) => a + estMinutes(x.e, x.day, x.superset), 0) + warm) };
 }

@@ -273,3 +273,8 @@ td.r, th.r { text-align: right; }
 
 .check-row { display: flex; gap: 10px; align-items: center; margin: 4px 0 12px; font-size: 14px; }
 .check-row input { width: 20px; height: 20px; }
+
+/* ---------- supersets & jour mobilité */
+.tag.ss { background: color-mix(in srgb, var(--gold) 22%, transparent); color: var(--gold); font-size: 12px; }
+.cue.ss { color: var(--gold); font-weight: 600; }
+.tag.t-jeu { background: color-mix(in srgb, var(--good) 20%, transparent); color: var(--good); }

@@ -38,7 +38,7 @@ export function normalizeExercise(e, i = 0) {
     repMin: e.repMin ?? 8, repMax: e.repMax ?? 12, timeMin: e.timeMin ?? 20, timeMax: e.timeMax ?? 45,
     days: (e.days || []).map(d => OLD_DAYS[d] || d), active: e.active ?? false, order: e.order ?? 1000 + i,
     cue: e.cue || '', notes: e.notes || '', plan: e.plan || null, img: e.img ?? null,
-    daySets: e.daySets || null, userEdited: !!e.userEdited, side: !!e.side,
+    daySets: e.daySets || null, userEdited: !!e.userEdited, side: !!e.side, superset: !!e.superset,
   };
 }
 
@@ -87,6 +87,21 @@ MIGRATIONS.push({ id: '2026-11-16-programme-1.4', run(st) {
   const iso = byId.get('iso-deltoide-90'); if (iso && !iso.userEdited) Object.assign(iso, { type: 'load_time', timeMin: 20, timeMax: 40, cue: P.get('iso-deltoide-90').cue });
   if (!byId.has('tenue-barre-1-main')) st.exercises.push(normalizeExercise({ ...P.get('tenue-barre-1-main'), active: true, order: 1.5 }));
   if (!st.meta.userOrdered) { const order = new Map(PROGRAM.map((p, i) => [p.id, i])); st.exercises.forEach(e => { if (order.has(e.id)) e.order = order.get(e.id); }); }
+} });
+
+MIGRATIONS.push({ id: '2026-11-16-programme-1.5', run(st) {
+  const P = new Map(PROGRAM.map(p => [p.id, p]));
+  DEFAULT_DAYS.forEach(d => { if (!st.days.some(x => x.id === d.id)) st.days.push({ ...d }); });
+  const byId = new Map(st.exercises.map(e => [e.id, e]));
+  for (const p of PROGRAM) {
+    const e = byId.get(p.id);
+    if (!e) { st.exercises.push(normalizeExercise({ ...p, active: true, order: 200 })); continue; }
+    if (e.userEdited) continue; // ta configuration prime
+    Object.assign(e, { superset: !!p.superset, side: !!p.side, days: p.days.slice(), cue: p.cue || e.cue, category: p.category, active: true });
+  }
+  const m90 = byId.get('maintien-jambes-90'); if (m90 && !m90.userEdited) m90.active = false; // redondant avec le tuck hold (plus spécifique)
+  if (!st.meta.userOrdered) { const order = new Map(PROGRAM.map((p, i) => [p.id, i])); st.exercises.forEach(e => { if (order.has(e.id)) e.order = order.get(e.id); }); }
+  EXTRA.forEach((p, i) => { if (!byId.has(p.id)) st.exercises.push(normalizeExercise({ ...p, active: false, order: 500 + i }, i)); });
 } });
 
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).

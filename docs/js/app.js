@@ -7,7 +7,7 @@ import { lineChart, sparkline, fdate } from './charts.js';
 import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.5.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -117,7 +117,7 @@ function exRow(e, archived = false) {
   return `<div class="ex-row ${archived ? 'archived' : ''}" data-id="${e.id}">
     ${archived ? '<span style="width:6px"></span>' : `<span class="handle" aria-label="Déplacer">${ICON.grip}</span>`}
     <div class="grow" data-open>
-      <div class="name">${archived ? '' : e.days.map(dayTag).join('')}${esc(e.name)}</div>
+      <div class="name">${archived ? '' : e.days.map(dayTag).join('')}${esc(e.name)}${!archived && e.superset ? ' <span class="tag ss" title="Superset : enchaîner avec le suivant">⇄</span>' : ''}</div>
       <div class="meta">${archived ? (st.last ? `${esc(recent)} · il y a ${C.fmtDuration(since)}` : 'Aucune donnée') : `${rangeOf(e, ui.day === 'all' ? null : ui.day)}${recent ? ' · ' + esc(recent) : ''}`}</div>
     </div>
     ${next}
@@ -158,7 +158,7 @@ function renderProg(v) {
       <button class="chip ${ui.day === 'all' ? 'on' : ''}" data-day="all">Tous (${active.length})</button>
       ${DAYS_().map(d => `<button class="chip ${ui.day === d.id ? 'on' : ''}" data-day="${d.id}">${esc(d.label)}</button>`).join('')}
     </div>
-    ${(() => { const L = C.dayLoad(ui.day === 'all' ? null : ui.day); return `<div class="day-load"><span><b>${L.n}</b> exercices</span><span><b>${L.sets}</b> séries</span><span>≈ <b>${L.min >= 60 ? Math.floor(L.min / 60) + ' h ' + String(L.min % 60).padStart(2, '0') : L.min + ' min'}</b>${ui.day === 'all' ? ' / semaine' : ''}</span>${ui.day === 'all' ? `<small>${DAYS_().map(d => { const x = C.dayLoad(d.id); return `${esc(d.short)} ${x.sets} séries · ${x.min} min`; }).join(' — ')}</small>` : ''}</div>`; })()}
+    ${(() => { const L = C.dayLoad(ui.day === 'all' ? null : ui.day); return `<div class="day-load"><span><b>${L.n}</b> ${ui.day === 'all' ? 'passages' : 'exercices'}</span><span><b>${L.sets}</b> séries</span><span>≈ <b>${L.min >= 60 ? Math.floor(L.min / 60) + ' h ' + String(L.min % 60).padStart(2, '0') : L.min + ' min'}</b>${ui.day === 'all' ? ' / semaine' : ''}</span>${ui.day === 'all' ? `<small>${DAYS_().map(d => { const x = C.dayLoad(d.id); return `${esc(d.short)} ${x.sets} séries · ${x.min} min`; }).join(' — ')}</small>` : ''}</div>`; })()}
     <div class="row" style="margin-bottom:8px">
       <div class="grow sub" style="margin:0">Maintiens <b>⋮⋮</b> et glisse pour réordonner.</div>
       <button class="btn sm primary" id="start-day">Démarrer ${ui.day === 'all' ? 'la séance' : esc(dayOf(ui.day)?.short || '')}</button>
@@ -311,6 +311,7 @@ function editExercise(e) {
     </div>
     <div class="field" data-inc><label>Incrément de charge (kg)</label><input id="f-inc" type="number" inputmode="decimal" step="0.25" value="${d.inc}"><div class="hint">Quand tu atteins les reps max sur une série, la charge suivante = charge + incrément${d.equip === 'db2' ? ' (par haltère)' : ''}.</div></div>
     <label class="check-row"><input type="checkbox" id="f-side" ${d.side ? 'checked' : ''}> Par côté (un bras / une jambe à la fois : séries comptées ×2)</label>
+    <label class="check-row"><input type="checkbox" id="f-ss" ${d.superset ? 'checked' : ''}> Superset : enchaîner avec l'exercice suivant du jour, puis repos (gain de temps)</label>
     <div class="field"><label>Catégorie</label><select id="f-cat">${CATEGORIES.map(c => `<option ${c === d.category ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Consigne / repère</label><input id="f-cue" value="${esc(d.cue)}" placeholder="ex. descente 3 s"></div>
     <button class="btn primary block" id="f-save">${isNew ? 'Ajouter au programme' : 'Enregistrer'}</button>`);
@@ -336,7 +337,7 @@ function editExercise(e) {
       name, days: $$('#f-days .on', sh).map(b => b.dataset.v), equip: $('#f-equip .on', sh).dataset.v, type: $('#f-type .on', sh).dataset.v,
       sets: +$('#f-sets', sh).value || 3, repMin: +$('#f-rmin', sh).value || 8, repMax: +$('#f-rmax', sh).value || 12,
       timeMin: +$('#f-tmin', sh).value || 20, timeMax: +$('#f-tmax', sh).value || 45, inc: +$('#f-inc', sh).value || 0,
-      category: $('#f-cat', sh).value, cue: $('#f-cue', sh).value, side: $('#f-side', sh).checked, img: d.img ?? t.img ?? null,
+      category: $('#f-cat', sh).value, cue: $('#f-cue', sh).value, side: $('#f-side', sh).checked, superset: $('#f-ss', sh).checked, img: d.img ?? t.img ?? null,
     });
 
     if (t.repMax < t.repMin) t.repMax = t.repMin;
@@ -488,7 +489,7 @@ setInterval(() => {
   const r = $('[data-rest]');
   if (r) {
     const v = +r.dataset.rest; if (!v) return;
-    const s = Math.round((Date.now() - v) / 1000), goal = S().settings.restSec || 120;
+    const s = Math.round((Date.now() - v) / 1000), goal = +r.dataset.goal || S().settings.restSec || 120;
     r.textContent = clock(v);
     r.parentElement.classList.toggle('over', s >= goal);
     if (s === goal && navigator.vibrate) navigator.vibrate([120, 80, 120]);
@@ -524,7 +525,7 @@ function renderLog(v) {
   v.innerHTML = `<div class="row" style="margin-top:6px"><h1 class="grow" style="margin:0">${d.day ? esc(dayOf(d.day)?.label || 'Séance') : 'Séance libre'}</h1></div>
     <div class="timer-bar">
       <div class="tb-main"><span class="tb-l">Durée</span><b data-clock="${d.startedAt}">${clock(d.startedAt)}</b><span class="tb-s">depuis ${hhmm(d.startedAt)}</span></div>
-      <div class="tb-rest"><span class="tb-l">Repos</span><b data-rest="${d.lastSetAt || ''}">${d.lastSetAt ? clock(d.lastSetAt) : '–'}</b><span class="tb-s">objectif ${clock(1, 1 + (S().settings.restSec || 120) * 1000)}</span></div>
+      <div class="tb-rest"><span class="tb-l">Repos</span><b data-rest="${d.lastSetAt || ''}" data-goal="${d.restGoal || ''}">${d.lastSetAt ? clock(d.lastSetAt) : '–'}</b><span class="tb-s">${esc(d.restLabel || 'objectif ' + clock(1, 1 + (S().settings.restSec || 120) * 1000))}</span></div>
       <button class="btn sm" id="l-restart" title="Remettre le chrono à zéro">Je commence maintenant</button>
     </div>
     <div class="row" style="margin:8px 0 12px"><input type="date" id="l-date" value="${d.date}" style="max-width:170px"><span class="grow"></span><button class="btn sm" id="l-add">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Exercice</button></div>
@@ -532,7 +533,14 @@ function renderLog(v) {
     <div class="field"><label>Notes de séance</label><textarea id="l-note" rows="2" placeholder="Sensations, douleurs, conditions…">${esc(d.note)}</textarea></div>
     <div class="grid2 sticky-bottom"><button class="btn danger" id="l-cancel">Supprimer la séance</button><button class="btn primary" id="l-finish">Terminer · <span data-clock="${d.startedAt}">${clock(d.startedAt)}</span></button></div>`;
   const ed = $('#l-editor', v);
-  const onSet = () => { d.lastSetAt = Date.now(); saveDraft(d); const r = $('[data-rest]', v); if (r) { r.dataset.rest = d.lastSetAt; r.textContent = '0:00'; r.parentElement.classList.remove('over'); } };
+  const onSet = (e, nextEn) => {
+    d.lastSetAt = Date.now();
+    const nx = e?.superset && nextEn ? getEx(nextEn.ex) : null;
+    d.restGoal = e ? C.restFor(e, !!nx) : (S().settings.restSec || 120);
+    d.restLabel = nx ? `⇄ enchaîne : ${nx.name}` : `objectif ${clock(1, 1 + d.restGoal * 1000)}`;
+    saveDraft(d);
+    const r = $('[data-rest]', v); if (r) { r.dataset.rest = d.lastSetAt; r.dataset.goal = d.restGoal; r.textContent = '0:00'; r.parentElement.classList.remove('over'); $('.tb-s', r.parentElement).textContent = d.restLabel; }
+  };
   sessionEditor(ed, d, () => saveDraft(d), { suggest: true, onSet });
   $('#l-restart', v).onclick = () => { d.startedAt = Date.now(); saveDraft(d); render(); toast('Chrono remis à zéro'); };
   $('#l-date', v).onchange = ev => { d.date = ev.target.value; saveDraft(d); };
@@ -554,6 +562,7 @@ function sessionEditor(host, d, onChange, { suggest = false, onSet = null } = {}
     return `<div class="log-ex ${done ? 'done' : ''}" data-ei="${ei}">
       <div class="row" style="gap:10px"><button class="illu-btn" data-illu aria-label="Voir l'exercice">${illuHTML(e, 'thumb')}</button><h3 class="grow">${esc(e.name)}</h3><span style="margin-right:4px">${sparkline(prev.map(h => h.perf), { w: 54, h: 20 })}</span><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>
       ${e.cue ? `<div class="cue">${esc(e.cue)}</div>` : ''}
+      ${e.superset && d.entries[ei + 1] && getEx(d.entries[ei + 1].ex) ? `<div class="cue ss">⇄ Superset : enchaîne sans repos avec « ${esc(getEx(d.entries[ei + 1].ex).name)} », puis récupère.</div>` : ''}
       ${prev.length ? `<div class="prev">${prev.map(h => `${fdate(h.date).replace(/ \d{4}$/, '')} : ${esc(C.fmtEntry(e, h.entry))}`).join('<br>')}</div>` : '<div class="prev">Première fois — note ta charge de départ.</div>'}
       ${sg.note ? `<div class="sugg">${sg.manual ? '✎ ' : '▲ '}${esc(sg.note)}</div>` : ''}
       <div class="col-h ${time || repsOnly ? 'time' : ''}"><span>#</span>${time ? '<span>secondes</span>' : repsOnly ? '<span>reps</span>' : `<span>${unitW(e)}${e.side ? ' · par côté' : ''}</span><span>${k2 === 't' ? 'secondes' : 'reps'}</span>`}<span>✓</span></div>
@@ -569,14 +578,14 @@ function sessionEditor(host, d, onChange, { suggest = false, onSet = null } = {}
     const en = d.entries[+card.dataset.ei];
     $$('.set-row', card).forEach(row => {
       const s = en.sets[+row.dataset.si];
-      $$('input', row).forEach(inp => inp.oninput = () => { if (inp.value === '') delete s[inp.dataset.k]; else s[inp.dataset.k] = +inp.value; s.done = true; $('[data-chk]', row).classList.add('on'); onChange(); });
+      $$('input', row).forEach(inp => inp.oninput = () => { if (inp.value === '') delete s[inp.dataset.k]; else s[inp.dataset.k] = +inp.value; onChange(); });
       $('[data-chk]', row).onclick = ev => {
         s.done = !s.done;
         if (s.done) $$('input', row).forEach(inp => { if (inp.value === '' && inp.placeholder !== '') { inp.value = inp.placeholder; s[inp.dataset.k] = +inp.placeholder; } });
         ev.currentTarget.classList.toggle('on', s.done);
         card.classList.toggle('done', en.sets.every(x => x.done));
         if (s.done && navigator.vibrate) navigator.vibrate(15);
-        if (s.done && onSet) onSet();
+        if (s.done && onSet) onSet(getEx(en.ex), d.entries[+card.dataset.ei + 1]);
         if (s.done && suggest) celebrateSet(getEx(en.ex), s, d, card);
         onChange();
       };
