@@ -1,4 +1,4 @@
 {
- "version": "1.6.0",
- "notes": "Pavé numérique intégré, correction du clavier qui se refermait pendant la séance, animation de record non bloquante"
+ "version": "1.7.0",
+ "notes": "Historique : recherche, filtres par jour et par année, regroupement par mois, modification complète des séances (durée, jour, ordre des exercices), ajout d'une séance passée, confirmation avant de perdre des modifications"
 }

@@ -298,3 +298,14 @@ input.kp-on { outline: 2px solid var(--accent); outline-offset: -1px; background
 input[type=number] { caret-color: transparent; }
 body.kp-open .sheet { padding-bottom: 300px; }
 .rec-pop { pointer-events: none; } body.kp-open .rec-pop { align-items: start; padding-top: 18vh; }
+
+/* ---------- historique */
+.month-h { display: flex; justify-content: space-between; align-items: baseline; margin: 16px 2px 6px; font-weight: 800; font-size: 14px; position: sticky; top: calc(54px + env(safe-area-inset-top, 0px)); background: var(--bg); padding: 4px 0; z-index: 2; }
+.month-h .muted { font-size: 12px; font-weight: 600; }
+.hist-item .d .tag { margin-right: 6px; }
+.hist-item .s.hm { color: var(--text); font-weight: 600; -webkit-line-clamp: 1; }
+.hist-item mark { background: color-mix(in srgb, var(--accent) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
+.sheet-foot { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0 calc(6px + var(--safe-b)); z-index: 3; }
+body.kp-open .sheet-foot { visibility: hidden; }
+.sheet.full { padding-bottom: 0; }
+body.kp-open .sheet.full { padding-bottom: 300px; }

@@ -7,13 +7,13 @@ import { lineChart, sparkline, fdate } from './charts.js';
 import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 
-export const APP_VERSION = '1.6.0';
+export const APP_VERSION = '1.7.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const ui = { tab: 'prog', day: 'all', showArch: false, archFilter: '', statRange: 'all', bodyRange: 'all', histLimit: 60 };
+const ui = { tab: 'prog', day: 'all', showArch: false, archFilter: '', statRange: 'all', bodyRange: 'all', histLimit: 60, histDay: 'all', histYear: '', histQ: '' };
 try { Object.assign(ui, JSON.parse(localStorage.getItem('airlift.ui') || '{}')); } catch (e) { /* */ }
 const saveUi = () => { try { localStorage.setItem('airlift.ui', JSON.stringify({ tab: ui.tab, day: ui.day, statRange: ui.statRange, bodyRange: ui.bodyRange })); } catch (e) { /* */ } };
 
@@ -56,6 +56,8 @@ let exitArmed = 0;
 window.airliftBack = () => {
   if (kp.open) { kpClose(); return true; }
   const r = $('#sheet-root');
+  const top = r.lastElementChild;
+  if (top?.guard && top.guard()) return true;
   if (r.lastElementChild) { r.lastElementChild.remove(); if (r.lastElementChild?.classList.contains('sheet-back')) r.lastElementChild.remove(); if (!r.children.length) render(); return true; }
   const prev = navStack.pop();
   if (prev) { ui.tab = prev.tab; ui.day = prev.day; saveUi(); render(); window.scrollTo(0, prev.y || 0); return true; }
@@ -553,7 +555,9 @@ function renderLog(v) {
 }
 
 /** Éditeur de séries — partagé entre la séance en cours et l'édition d'historique. */
-function sessionEditor(host, d, onChange, { suggest = false, onSet = null } = {}) {
+function sessionEditor(host, d, onChange, opts = {}) {
+  const { suggest = false, onSet = null, reorder = false } = opts;
+  const redraw = () => sessionEditor(host, d, onChange, opts);
   host.innerHTML = d.entries.map((en, ei) => {
     const e = getEx(en.ex); if (!e) return '';
     const st = C.exStats(e.id);
@@ -562,7 +566,7 @@ function sessionEditor(host, d, onChange, { suggest = false, onSet = null } = {}
     const prev = st.arr.filter(h => h.session.id !== d.id).slice(-3);
     const done = en.sets.length && en.sets.every(s => s.done);
     return `<div class="log-ex ${done ? 'done' : ''}" data-ei="${ei}">
-      <div class="row" style="gap:10px"><button class="illu-btn" data-illu aria-label="Voir l'exercice">${illuHTML(e, 'thumb')}</button><h3 class="grow">${esc(e.name)}</h3><span style="margin-right:4px">${sparkline(prev.map(h => h.perf), { w: 54, h: 20 })}</span><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>
+      <div class="row" style="gap:10px"><button class="illu-btn" data-illu aria-label="Voir l'exercice">${illuHTML(e, 'thumb')}</button><h3 class="grow">${esc(e.name)}</h3>${reorder && ei > 0 ? `<button class="mini-btn" data-up aria-label="Monter">↑</button>` : ''}<span style="margin-right:4px">${sparkline(prev.map(h => h.perf), { w: 54, h: 20 })}</span><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>
       ${e.cue ? `<div class="cue">${esc(e.cue)}</div>` : ''}
       ${e.superset && d.entries[ei + 1] && getEx(d.entries[ei + 1].ex) ? `<div class="cue ss">⇄ Superset : enchaîne sans repos avec « ${esc(getEx(d.entries[ei + 1].ex).name)} », puis récupère.</div>` : ''}
       ${prev.length ? `<div class="prev">${prev.map(h => `${fdate(h.date).replace(/ \d{4}$/, '')} : ${esc(C.fmtEntry(e, h.entry))}`).join('<br>')}</div>` : '<div class="prev">Première fois — note ta charge de départ.</div>'}
@@ -592,9 +596,10 @@ function sessionEditor(host, d, onChange, { suggest = false, onSet = null } = {}
         onChange();
       };
     });
-    $('[data-addset]', card).onclick = () => { en.sets.push({}); onChange(); sessionEditor(host, d, onChange, { suggest }); };
-    const ds = $('[data-delset]', card); if (ds) ds.onclick = () => { en.sets.pop(); onChange(); sessionEditor(host, d, onChange, { suggest }); };
-    $('[data-rm]', card).onclick = () => { d.entries.splice(+card.dataset.ei, 1); onChange(); sessionEditor(host, d, onChange, { suggest }); };
+    $('[data-addset]', card).onclick = () => { en.sets.push({}); onChange(); redraw(); };
+    const ds = $('[data-delset]', card); if (ds) ds.onclick = () => { en.sets.pop(); onChange(); redraw(); };
+    $('[data-rm]', card).onclick = () => { d.entries.splice(+card.dataset.ei, 1); onChange(); redraw(); };
+    const up = $('[data-up]', card); if (up) up.onclick = () => { const i = +card.dataset.ei; [d.entries[i - 1], d.entries[i]] = [d.entries[i], d.entries[i - 1]]; onChange(); redraw(); };
     $('[data-plan]', card).onclick = () => editPlan(getEx(en.ex));
     $('[data-illu]', card).onclick = () => showIllustration(getEx(en.ex));
   });
@@ -618,6 +623,7 @@ function finishSession(d) {
   const before = C.sessionScores().at(-1)?.cum || 0;
   const end = Date.now();
   const sess = { id: d.id, date: d.date, note: d.note, source: 'app', entries };
+  if (d.day) sess.day = d.day;
   if (d.startedAt) Object.assign(sess, { start: hhmm(d.startedAt), end: hhmm(end), dur: Math.max(1, Math.round((end - d.startedAt) / 60000)) });
   S().sessions.push(sess);
   entries.forEach(en => { const e = getEx(en.ex); if (e && e.plan?.manual) e.plan = null; });
@@ -729,48 +735,116 @@ function editBody(x) {
 }
 
 // ================================================================ HISTORIQUE
+// Toutes les séances : recherche, filtres (jour, année), groupées par mois, pauses visibles.
+// Chaque séance est entièrement modifiable (date, jour, horaires, durée, exercices, séries, notes).
+const MONTHS_L = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const sessDay = s => s.day || DAYS_().find(d => d.wd === toD(s.date).getDay())?.id || null;
+const wdShort = date => WEEKDAYS[toD(date).getDay()].slice(0, 3).toLowerCase() + '.';
 function renderHist(v) {
   const ss = S().sessions;
-  const sc = new Map(C.sessionScores().map(x => [x.session.id, x]));
-  const md = S().settings.breakDays;
-  const list = ss.slice().reverse().slice(0, ui.histLimit);
-  let html = `<h1>Historique</h1><p class="sub">${ss.length} séances. Appuie sur une séance pour la corriger.</p>`;
-  const lastS = ss.at(-1);
-  if (lastS && daysBetween(lastS.date, today()) >= md) html += `<div class="break-sep">Pause en cours · ${C.fmtDuration(daysBetween(lastS.date, today()))}</div>`;
-  list.forEach((s, i) => {
-    const x = sc.get(s.id);
-    const names = s.entries.map(en => { const e = getEx(en.ex); return e ? `${e.name} ${C.fmtEntry(e, { sets: en.sets.slice(0, 2) })}` : ''; }).filter(Boolean).join(' · ');
-    html += `<button class="hist-item" data-id="${s.id}"><div class="row"><span class="d grow">${fdate(s.date)}${s.approx ? ' <span class="muted" title="date estimée">≈</span>' : ''}${s.dur ? ` <span class="muted">· ⏱ ${fmtMin(s.dur)}</span>` : ''}</span>${x ? `<span class="pts ${x.pts > 2 ? 'up' : x.pts < 0 ? 'down' : ''}">${x.pts > 0 ? '+' : ''}${x.pts} pts</span>` : ''}</div><div class="s">${esc(names)}</div>${s.note ? `<div class="s" style="color:var(--muted)">📝 ${esc(s.note)}</div>` : ''}</button>`;
-    const prev = list[i + 1];
-    if (prev) { const g = daysBetween(prev.date, s.date); if (g >= md) html += `<div class="break-sep">Pause · ${C.fmtDuration(g)}</div>`; }
-  });
-  if (ss.length > ui.histLimit) html += `<button class="btn block" id="h-more">Afficher plus</button>`;
-  v.innerHTML = html;
-  $$('.hist-item', v).forEach(b => b.onclick = () => editSession(ss.find(s => s.id === b.dataset.id)));
-  const m = $('#h-more', v); if (m) m.onclick = () => { ui.histLimit += 100; render(); };
+  const years = [...new Set(ss.map(s => s.date.slice(0, 4)))].sort().reverse();
+  if (ui.histYear && !years.includes(ui.histYear)) ui.histYear = '';
+  const chip = (attr, val, cur, lbl) => `<button class="chip ${cur === val ? 'on' : ''}" ${attr}="${esc(val)}">${esc(lbl)}</button>`;
+  v.innerHTML = `<div class="row" style="margin-top:6px"><h1 class="grow" style="margin:0">Historique</h1><button class="btn sm" id="h-new">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Séance passée</button></div>
+    <p class="sub" id="h-count"></p>
+    <input type="search" id="h-q" placeholder="Rechercher un exercice ou une note…" value="${esc(ui.histQ || '')}" style="margin-bottom:6px">
+    <div class="chips" id="h-days">${chip('data-hd', 'all', ui.histDay || 'all', 'Tous les jours')}${DAYS_().map(d => chip('data-hd', d.id, ui.histDay, WEEKDAYS[d.wd] ?? d.label)).join('')}</div>
+    <div class="chips" id="h-years" style="padding-top:0">${chip('data-hy', '', ui.histYear || '', 'Toutes les années')}${years.map(y => chip('data-hy', y, ui.histYear, y)).join('')}</div>
+    <div id="h-list"></div>`;
+  const draw = () => {
+    const q = (ui.histQ || '').trim().toLowerCase();
+    const md = S().settings.breakDays;
+    const sc = new Map(C.sessionScores().map(x => [x.session.id, x]));
+    const match = s => (!ui.histYear || s.date.startsWith(ui.histYear))
+      && (!ui.histDay || ui.histDay === 'all' || sessDay(s) === ui.histDay)
+      && (!q || (s.note || '').toLowerCase().includes(q) || s.entries.some(en => (getEx(en.ex)?.name || '').toLowerCase().includes(q)));
+    const all = ss.filter(match).reverse();
+    const filtered = all.length !== ss.length;
+    $('#h-count', v).textContent = filtered ? `${all.length} séance${all.length > 1 ? 's' : ''} sur ${ss.length}` : `${ss.length} séances. Appuie sur une séance pour la voir ou la modifier.`;
+    const list = all.slice(0, ui.histLimit);
+    let html = '', month = '';
+    const lastS = ss.at(-1);
+    if (!filtered && lastS && daysBetween(lastS.date, today()) >= md) html += `<div class="break-sep">Pause en cours · ${C.fmtDuration(daysBetween(lastS.date, today()))}</div>`;
+    list.forEach((s, i) => {
+      const m = s.date.slice(0, 7);
+      if (m !== month) { month = m; const n = all.filter(x => x.date.startsWith(m)).length; html += `<div class="month-h"><span>${MONTHS_L[+m.slice(5) - 1]} ${m.slice(0, 4)}</span><span class="muted">${n} séance${n > 1 ? 's' : ''}</span></div>`; }
+      const x = sc.get(s.id);
+      const hl = name => q && name.toLowerCase().includes(q) ? `<mark>${esc(name)}</mark>` : esc(name);
+      const hit = en => q && (getEx(en.ex)?.name || '').toLowerCase().includes(q);
+      const names = s.entries.slice().sort((a, b) => hit(b) - hit(a)).map(en => { const e = getEx(en.ex); return e ? `${hl(e.name)} ${esc(C.fmtEntry(e, { sets: en.sets.slice(0, 2) }))}` : ''; }).filter(Boolean).join(' · ');
+      const dy = sessDay(s);
+      html += `<button class="hist-item" data-id="${s.id}"><div class="row"><span class="d grow">${dy ? dayTag(dy) : ''}${wdShort(s.date)} ${fdate(s.date)}${s.approx ? ' <span class="muted" title="date estimée">≈</span>' : ''}</span>${x ? `<span class="pts ${x.pts > 2 ? 'up' : x.pts < 0 ? 'down' : ''}">${x.pts > 0 ? '+' : ''}${x.pts} pts</span>` : ''}</div>
+        <div class="s hm">${s.entries.length} exo${s.entries.length > 1 ? 's' : ''} · ${(n => `${n} série${n > 1 ? 's' : ''}`)(s.entries.reduce((a, en) => a + en.sets.length, 0))}${s.dur ? ` · ⏱ ${fmtMin(s.dur)}` : ''}${s.start ? ` <span class="muted">(${s.start}${s.end ? '→' + s.end : ''})</span>` : ''}</div>
+        <div class="s">${names}</div>${s.note ? `<div class="s" style="color:var(--muted)">📝 ${esc(s.note)}</div>` : ''}</button>`;
+      const prev = list[i + 1];
+      if (prev && !filtered) { const g = daysBetween(prev.date, s.date); if (g >= md) html += `<div class="break-sep">Pause · ${C.fmtDuration(g)}</div>`; }
+    });
+    if (!list.length) html += `<div class="empty">Aucune séance${filtered ? ' pour ces filtres' : ''}.</div>`;
+    if (all.length > ui.histLimit) html += `<button class="btn block" id="h-more">Afficher plus (${all.length - ui.histLimit} restantes)</button>`;
+    const host = $('#h-list', v); host.innerHTML = html;
+    $$('.hist-item', host).forEach(b => b.onclick = () => editSession(ss.find(s => s.id === b.dataset.id)));
+    const mo = $('#h-more', host); if (mo) mo.onclick = () => { ui.histLimit += 100; draw(); };
+  };
+  const chipGroup = (sel, attr, key) => $$(`${sel} .chip`, v).forEach(b => b.onclick = () => { ui[key] = b.getAttribute(attr); ui.histLimit = 60; $$(`${sel} .chip`, v).forEach(x => x.classList.toggle('on', x === b)); draw(); });
+  chipGroup('#h-days', 'data-hd', 'histDay'); chipGroup('#h-years', 'data-hy', 'histYear');
+  let qT; $('#h-q', v).oninput = ev => { clearTimeout(qT); qT = setTimeout(() => { ui.histQ = ev.target.value; ui.histLimit = 60; draw(); }, 150); };
+  $('#h-new', v).onclick = () => editSession(null);
+  draw();
 }
 
+const toMin = t => t ? +t.slice(0, 2) * 60 + +t.slice(3, 5) : null;
+const fromMin = m => `${pad(Math.floor(((m % 1440) + 1440) % 1440 / 60))}:${pad(((m % 60) + 60) % 60)}`;
+
+/** Voir / modifier une séance enregistrée (s = null : ajouter une séance passée oubliée). */
 function editSession(s) {
-  const d = { id: s.id, date: s.date, note: s.note, entries: s.entries.map(en => ({ ex: en.ex, sets: en.sets.map(x => ({ ...x, done: true })) })) };
-  const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-close>${ICON.back}</button><h2>Séance du ${fdate(s.date)}</h2></div>
-    ${s.entries.some(en => en.raw) ? `<p class="sub">Importé du tableur. Valeurs d'origine conservées : ${esc(s.entries.map(en => en.raw).filter(Boolean).join(' · ').slice(0, 300))}</p>` : ''}
-    <div class="grid3"><div class="field"><label>Date</label><input type="date" id="es-date" value="${s.date}"></div><div class="field"><label>Début</label><input type="time" id="es-start" value="${s.start || ''}"></div><div class="field"><label>Fin</label><input type="time" id="es-end" value="${s.end || ''}"></div></div>
+  const isNew = !s;
+  if (isNew) s = { id: uid(), date: today(), note: '', source: 'app', entries: [] };
+  const d = { id: s.id, date: s.date, day: sessDay(s), note: s.note, entries: s.entries.map(en => ({ ex: en.ex, sets: en.sets.map(x => ({ ...x, done: true })) })) };
+  const snap = () => JSON.stringify([d, $('#es-date', sh)?.value, $('#es-day', sh)?.value, $('#es-start', sh)?.value, $('#es-end', sh)?.value, $('#es-dur', sh)?.value, $('#es-note', sh)?.value]);
+  const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-back aria-label="Retour">${ICON.back}</button><h2>${isNew ? 'Ajouter une séance' : `Séance du ${wdShort(s.date)} ${fdate(s.date)}`}</h2></div>
+    ${s.entries.some(en => en.raw) ? `<p class="sub">Importé du tableur. Valeurs d'origine : ${esc(s.entries.map(en => en.raw).filter(Boolean).join(' · ').slice(0, 300))}</p>` : ''}
+    <div class="grid2"><div class="field"><label>Date</label><input type="date" id="es-date" value="${s.date}"></div>
+      <div class="field"><label>Jour du programme</label><select id="es-day"><option value="">—</option>${DAYS_().map(x => `<option value="${esc(x.id)}" ${d.day === x.id ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div></div>
+    <div class="grid3"><div class="field"><label>Début</label><input type="time" id="es-start" value="${s.start || ''}"></div><div class="field"><label>Fin</label><input type="time" id="es-end" value="${s.end || ''}"></div><div class="field"><label>Durée (min)</label><input type="number" inputmode="numeric" id="es-dur" value="${s.dur ?? ''}" placeholder="–"></div></div>
     <div id="es-ed"></div>
     <button class="btn sm" id="es-add" style="margin-bottom:12px">+ Exercice</button>
-    <div class="field"><label>Notes</label><textarea id="es-note" rows="2">${esc(s.note || '')}</textarea></div>
-    <div class="grid2"><button class="btn danger" id="es-del">Supprimer</button><button class="btn primary" id="es-save">Enregistrer</button></div>`, { full: true });
-  sessionEditor($('#es-ed', sh), d, () => { });
-  $('#es-add', sh).onclick = () => pickExercise(id => { d.entries.push({ ex: id, sets: [{}, {}, {}] }); sessionEditor($('#es-ed', sh), d, () => { }); });
-  $('#es-save', sh).onclick = () => {
+    <div class="field"><label>Notes</label><textarea id="es-note" rows="2" placeholder="Sensations, douleurs, conditions…">${esc(s.note || '')}</textarea></div>
+    <div class="grid2 sheet-foot">${isNew ? '<button class="btn" data-close>Annuler</button>' : '<button class="btn danger" id="es-del">Supprimer</button>'}<button class="btn primary" id="es-save">Enregistrer</button></div>`, { full: true });
+  const ed = () => sessionEditor($('#es-ed', sh), d, () => { }, { reorder: true });
+  ed();
+  const orig = snap();
+  // horaires ↔ durée : changer le début/la fin recalcule la durée ; changer la durée recalcule la fin
+  const iS = $('#es-start', sh), iE = $('#es-end', sh), iD = $('#es-dur', sh);
+  iS.onchange = iE.onchange = () => { if (iS.value && iE.value) iD.value = (toMin(iE.value) - toMin(iS.value) + 1440) % 1440 || ''; else if (iS.value && iD.value) iE.value = fromMin(toMin(iS.value) + +iD.value); };
+  iD.oninput = () => { if (iS.value && +iD.value > 0) iE.value = fromMin(toMin(iS.value) + +iD.value); };
+  $('#es-add', sh).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push({ ex: id, sets: Array.from({ length: setsOn(e, $('#es-day', sh).value || null) || 2 }, () => ({})) }); ed(); setTimeout(() => $$('.log-ex', sh).at(-1)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50); });
+  const save = () => {
+    const entries = cleanEntries(d);
+    if (!entries.length) { toast(isNew ? 'Ajoute au moins une série remplie' : 'Aucune série : utilise « Supprimer » pour effacer la séance'); return false; }
     s.date = $('#es-date', sh).value || s.date; s.note = $('#es-note', sh).value;
-    const st0 = $('#es-start', sh).value, en0 = $('#es-end', sh).value;
-    if (st0 && en0) { const toM = t => +t.slice(0, 2) * 60 + +t.slice(3, 5); Object.assign(s, { start: st0, end: en0, dur: (toM(en0) - toM(st0) + 1440) % 1440 }); } else { delete s.start; delete s.end; delete s.dur; }
+    const dy = $('#es-day', sh).value; if (dy) s.day = dy; else delete s.day;
+    const st0 = iS.value, en0 = iE.value, dur = +iD.value;
+    if (st0) s.start = st0; else delete s.start;
+    if (en0) s.end = en0; else delete s.end;
+    if (dur > 0) s.dur = Math.round(dur); else if (st0 && en0) s.dur = (toMin(en0) - toMin(st0) + 1440) % 1440; else delete s.dur;
     const raws = new Map(s.entries.map(en => [en.ex, en.raw]));
-    s.entries = cleanEntries(d).map(en => ({ ...en, raw: raws.get(en.ex) }));
-    if (!s.entries.length) S().sessions = S().sessions.filter(x => x !== s);
-    S()._rev = (S()._rev || 0) + 1; C.invalidate(); commit(); sh.close(); render(); toast('Séance mise à jour');
+    s.entries = entries.map(en => (raws.get(en.ex) ? { ...en, raw: raws.get(en.ex) } : en));
+    if (isNew) S().sessions.push(s);
+    S()._rev = (S()._rev || 0) + 1; C.invalidate(); commit(); sh.close(); render(); toast(isNew ? 'Séance ajoutée' : 'Séance mise à jour');
+    return true;
   };
-  $('#es-del', sh).onclick = async () => { if (await confirmBox('Supprimer cette séance ?', 'Supprimer', true)) { S().sessions = S().sessions.filter(x => x !== s); S()._rev = (S()._rev || 0) + 1; C.invalidate(); commit(); sh.close(); render(); } };
+  $('#es-save', sh).onclick = save;
+  // quitter (← ou bouton retour Android) avec des modifications : on propose de les enregistrer
+  sh.guard = () => {
+    if (snap() === orig) return false;
+    const c = sheet(`<h2 style="margin-top:4px">Enregistrer les modifications ?</h2><div class="grid2" style="margin-top:16px"><button class="btn" data-drop>Ne pas enregistrer</button><button class="btn primary" data-keep>Enregistrer</button></div>`);
+    $('[data-drop]', c).onclick = () => { c.close(); sh.close(); };
+    $('[data-keep]', c).onclick = () => { c.close(); save(); };
+    return true;
+  };
+  $('[data-back]', sh).onclick = () => { if (!sh.guard()) sh.close(); };
+  const del = $('#es-del', sh);
+  if (del) del.onclick = async () => { if (await confirmBox('Supprimer cette séance ?', 'Supprimer', true)) { S().sessions = S().sessions.filter(x => x !== s); S()._rev = (S()._rev || 0) + 1; C.invalidate(); commit(); sh.close(); render(); toast('Séance supprimée'); } };
 }
 
 // ================================================================ RÉGLAGES
