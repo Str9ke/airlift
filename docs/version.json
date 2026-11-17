@@ -1,4 +1,4 @@
 {
- "version": "1.5.0",
- "notes": "Programme réorganisé (tractions et board-off en premier), supersets et repos par exercice, jeudi mobilité à la maison, correction de la validation des séries"
+ "version": "1.6.0",
+ "notes": "Pavé numérique intégré, correction du clavier qui se refermait pendant la séance, animation de record non bloquante"
 }

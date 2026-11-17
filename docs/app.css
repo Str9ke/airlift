@@ -278,3 +278,23 @@ td.r, th.r { text-align: right; }
 .tag.ss { background: color-mix(in srgb, var(--gold) 22%, transparent); color: var(--gold); font-size: 12px; }
 .cue.ss { color: var(--gold); font-weight: 600; }
 .tag.t-jeu { background: color-mix(in srgb, var(--good) 20%, transparent); color: var(--good); }
+
+/* ---------- pavé numérique intégré */
+#keypad { position: fixed; left: 0; right: 0; bottom: 0; z-index: 90; background: var(--bg2); border-top: 1px solid var(--line); box-shadow: 0 -8px 30px rgba(0,0,0,.35); padding: 6px 8px calc(8px + var(--safe-b)); transform: translateY(105%); transition: transform .18s ease-out; max-width: 760px; margin: 0 auto; }
+#keypad.on { transform: none; }
+.kp-top { display: flex; align-items: center; gap: 10px; padding: 2px 4px 6px; }
+.kp-lbl { flex: 1; font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kp-val { font-size: 22px; font-variant-numeric: tabular-nums; min-width: 60px; text-align: right; color: var(--accent); }
+.kp-val.ph { color: var(--muted); }
+.kp-close { width: 36px; height: 30px; border-radius: 8px; background: var(--card); font-size: 16px; }
+.kp-grid { display: grid; grid-template-columns: repeat(3, 1fr) 1.25fr; gap: 6px; }
+.kp-k { height: 44px; border-radius: 11px; background: var(--card); font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; touch-action: manipulation; user-select: none; }
+.kp-k:active { background: var(--card2); transform: scale(.97); }
+.kp-k.fn { font-size: 14px; font-weight: 700; color: var(--text2); }
+.kp-k.ok { background: var(--grad); color: #04121f; font-size: 15px; font-weight: 800; }
+body.kp-open main { padding-bottom: 300px; }
+body.kp-open .sticky-bottom { visibility: hidden; }
+input.kp-on { outline: 2px solid var(--accent); outline-offset: -1px; background: color-mix(in srgb, var(--accent) 10%, var(--bg2)); }
+input[type=number] { caret-color: transparent; }
+body.kp-open .sheet { padding-bottom: 300px; }
+.rec-pop { pointer-events: none; } body.kp-open .rec-pop { align-items: start; padding-top: 18vh; }

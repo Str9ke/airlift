@@ -7,7 +7,7 @@ import { lineChart, sparkline, fdate } from './charts.js';
 import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 
-export const APP_VERSION = '1.5.0';
+export const APP_VERSION = '1.6.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -54,6 +54,7 @@ const navSnap = () => ({ tab: ui.tab, day: ui.day, y: window.scrollY });
 function navPush() { const s = navSnap(), t = navStack.at(-1); if (!t || t.tab !== s.tab || t.day !== s.day) navStack.push(s); if (navStack.length > 30) navStack.shift(); }
 let exitArmed = 0;
 window.airliftBack = () => {
+  if (kp.open) { kpClose(); return true; }
   const r = $('#sheet-root');
   if (r.lastElementChild) { r.lastElementChild.remove(); if (r.lastElementChild?.classList.contains('sheet-back')) r.lastElementChild.remove(); if (!r.children.length) render(); return true; }
   const prev = navStack.pop();
@@ -87,6 +88,7 @@ const dayTag = id => { const d = dayOf(id); return d ? `<span class="tag t-${esc
 const unitW = e => e.type === 'bw_load' ? 'lest kg' : e.type === 'assisted' ? 'assist. kg' : 'kg';
 
 function render() {
+  if (kp.open) kpClose();
   applyTheme();
   $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
   const v = $('#view');
@@ -972,7 +974,112 @@ async function pullAndRender() {
   else sync.retry(() => JSON.stringify(S()));
 }
 matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', () => applyTheme());
-let resizeT; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (!$('#sheet-root').children.length) render(); }, 200); });
+// Redessiner au changement de taille SEULEMENT s'il ne s'agit pas du clavier : sinon le champ perdait le focus
+// et le clavier se refermait aussitôt (bug « je n'arrive pas à encoder les numéros »).
+let resizeT, lastW = innerWidth;
+addEventListener('resize', () => {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => {
+    if (innerWidth === lastW) return; // seule la hauteur change = clavier qui s'ouvre/se ferme
+    lastW = innerWidth;
+    const a = document.activeElement;
+    if ($('#sheet-root').children.length || kp.open || (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName))) return;
+    render();
+  }, 200);
+});
+
+// ================================================================ PAVÉ NUMÉRIQUE
+// Remplace le clavier du téléphone pour tous les champs numériques : compact, toujours au même endroit,
+// avec « Suivant » (champ suivant) et « ✓ » (valide la série et passe à la suivante).
+const kp = { open: false, inp: null, buf: '', fresh: true, el: null };
+function kpBuild() {
+  const el = document.createElement('div');
+  el.id = 'keypad'; el.setAttribute('role', 'group'); el.setAttribute('aria-label', 'Pavé numérique');
+  const k = (v, cls = '', lbl = v) => `<button type="button" class="kp-k ${cls}" data-v="${v}">${lbl}</button>`;
+  el.innerHTML = `<div class="kp-top"><span class="kp-lbl"></span><b class="kp-val"></b><button type="button" class="kp-close" data-v="close" aria-label="Fermer">▾</button></div>
+    <div class="kp-grid">
+      ${k('7')}${k('8')}${k('9')}${k('back', 'fn', '⌫')}
+      ${k('4')}${k('5')}${k('6')}${k('next', 'fn', 'Suivant')}
+      ${k('1')}${k('2')}${k('3')}${k('ok', 'ok', '✓ Série')}
+      ${k('.', '', ',')}${k('0')}${k('clear', 'fn', 'Effacer')}${k('done', 'fn', 'OK')}
+    </div>`;
+  el.addEventListener('pointerdown', ev => ev.preventDefault()); // garde le focus visuel, pas de clavier système
+  el.addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) kpKey(b.dataset.v); });
+  document.body.append(el);
+  kp.el = el;
+}
+const kpInputs = () => { const root = kp.inp?.closest('.sheet') || $('#view'); return $$('input[type=number]', root).filter(i => i.offsetParent); };
+function kpLabel(inp) {
+  const row = inp.closest('.set-row'), card = inp.closest('.log-ex');
+  const unit = inp.dataset.k === 'w' ? 'kg' : inp.dataset.k === 't' ? 'secondes' : inp.dataset.k === 'r' ? 'reps' : (inp.closest('.field')?.querySelector('label')?.textContent || '');
+  if (card && row) return `${$('h3', card)?.firstChild?.textContent || ''} · série ${row.dataset.si != null ? +row.dataset.si + 1 : +row.dataset.i + 1} · ${unit}`;
+  if (row) return `Série ${+row.dataset.i + 1} · ${unit}`;
+  return unit;
+}
+function kpOpen(inp) {
+  if (!kp.el) kpBuild();
+  if (kp.inp && kp.inp !== inp) { kpCommit(); kp.inp.classList.remove('kp-on'); }
+  kp.inp = inp; kp.buf = inp.value; kp.fresh = true; kp.open = true;
+  inp.readOnly = true; inp.classList.add('kp-on');
+  $('.kp-lbl', kp.el).textContent = kpLabel(inp);
+  $('[data-v=ok]', kp.el).style.visibility = inp.closest('.set-row')?.querySelector('[data-chk]') ? '' : 'hidden';
+  kpShow();
+  kp.el.classList.add('on'); document.body.classList.add('kp-open');
+  setTimeout(() => inp.scrollIntoView({ block: 'center', behavior: 'smooth' }), 30);
+}
+function kpShow() { const v = kp.buf.replace('.', ','); $('.kp-val', kp.el).textContent = v || (kp.inp?.placeholder ? kp.inp.placeholder.replace('.', ',') : '–'); $('.kp-val', kp.el).classList.toggle('ph', !v); }
+function kpClose() {
+  if (!kp.open) return;
+  const i = kp.inp; kp.open = false;
+  setTimeout(() => { if (i && kp.dirty) { kp.dirty = false; i.dispatchEvent(new Event('change', { bubbles: true })); } }, 0); kp.el?.classList.remove('on'); document.body.classList.remove('kp-open');
+  i?.classList.remove('kp-on'); kp.inp = null;
+}
+function kpWrite() {
+  const inp = kp.inp; if (!inp) return;
+  const clean = kp.buf.endsWith('.') ? kp.buf.slice(0, -1) : kp.buf;
+  inp.value = clean;
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+  kp.dirty = true;
+}
+// « change » seulement en quittant le champ (comme le clavier natif) : certains champs redessinent l'écran
+function kpCommit() { const i = kp.inp; if (i && kp.dirty) { kp.dirty = false; i.dispatchEvent(new Event('change', { bubbles: true })); } }
+function kpMove(dir = 1) {
+  const list = kpInputs(); const i = list.indexOf(kp.inp);
+  const nx = list[i + dir];
+  if (nx) kpOpen(nx); else kpClose();
+}
+function kpKey(v) {
+  if (!kp.inp) return;
+  if (navigator.vibrate) navigator.vibrate(8);
+  if (/^\d$/.test(v) || v === '.') {
+    if (kp.fresh) kp.buf = '';
+    kp.fresh = false;
+    if (v === '.' && (kp.buf.includes('.') || kp.inp.dataset.k === 'r' || kp.inp.dataset.k === 't')) return;
+    if (kp.buf.replace('.', '').length >= 5) return;
+    kp.buf = (kp.buf === '0' && v !== '.') ? v : (kp.buf === '' && v === '.' ? '0.' : kp.buf + v);
+    kpWrite();
+  } else if (v === 'back') { kp.fresh = false; kp.buf = kp.buf.slice(0, -1); kpWrite(); }
+  else if (v === 'clear') { kp.fresh = false; kp.buf = ''; kpWrite(); }
+  else if (v === 'next') return kpMove(1);
+  else if (v === 'done' || v === 'close') return kpClose();
+  else if (v === 'ok') {
+    const row = kp.inp.closest('.set-row'); const chk = row?.querySelector('[data-chk]');
+    if (chk && !chk.classList.contains('on')) chk.click();
+    // passe au premier champ de la série suivante (ou de l'exercice suivant)
+    const list = kpInputs(); const after = list.filter(i => row.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING && !row.contains(i));
+    if (after[0]) kpOpen(after[0]); else kpClose();
+    return;
+  }
+  kpShow();
+}
+// tous les champs numériques passent par le pavé (pointerdown : avant que le clavier système ne s'ouvre)
+document.addEventListener('pointerdown', ev => {
+  const inp = ev.target.closest?.('input[type=number]');
+  if (inp) { ev.preventDefault(); kpOpen(inp); return; }
+  if (kp.open && !ev.target.closest('#keypad')) kpClose();
+}, true);
+document.addEventListener('focusin', ev => { if (ev.target.matches?.('input[type=number]') && kp.inp !== ev.target) { ev.target.blur(); kpOpen(ev.target); } });
+
 
 // ================================================================ boot
 store.init().then(() => { S()._rev = S()._rev || 0; render(); $('#sync-ind').className = 'sync-dot s-' + sync.status.state; pullAndRender(); setTimeout(() => checkUpdate(false), 1500); });
