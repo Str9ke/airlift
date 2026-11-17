@@ -1,4 +1,4 @@
 {
- "version": "1.7.0",
- "notes": "Historique : recherche, filtres par jour et par année, regroupement par mois, modification complète des séances (durée, jour, ordre des exercices), ajout d'une séance passée, confirmation avant de perdre des modifications"
+ "version": "1.8.0",
+ "notes": "Journée mobilité du jeudi retirée, plus de doublon possible en ajoutant un exercice à une séance, titre des exercices collé à l'image et sans chevauchement"
 }

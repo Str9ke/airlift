@@ -7,7 +7,6 @@ export const DEFAULT_DAYS = [
   { id: 'mar', short: 'Mar', wd: 2, label: 'Mardi · Force + board-off' },
   { id: 'ven', short: 'Ven', wd: 5, label: 'Vendredi · Spécifique board-off' },
   { id: 'dim', short: 'Dim', wd: 0, label: 'Dimanche · Dos, jambes, épaules' },
-  { id: 'jeu', short: 'Jeu', wd: 4, label: 'Jeudi · Mobilité maison (≈ 20 min)' },
 ];
 export const WEEKDAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
@@ -21,7 +20,6 @@ const SECU = '1 rep avant l\'échec technique (dos neutre)';
 //  - chaque muscle 2 fois / semaine, les mouvements clés 2 fois, les secondaires 1 fois ;
 //  - l'ordre global ci-dessous donne l'ordre dans chaque séance (spécifique board-off et tractions en premier) ;
 //  - superset: true = « enchaîne avec l'exercice suivant du jour, puis repos » ;
-//  - jeudi = mobilité à la maison, sans matériel (souplesse en compression et ouverture de hanche).
 export const PROGRAM = [
   // Vendredi — geste board-off en premier (qualité motrice quand tu es frais), puis explosif, puis iso
   { id: 'harnais-planche', name: 'Board-off harnais + planche', category: 'Board-off', equip: 'bodyweight', type: 'reps', days: ['ven'], sets: 3, repMin: 3, repMax: 3, cue: 'Suspendu au harnais, planche aux pieds · 3 reps de qualité · 90 s de récup · jamais à l\'épuisement' },
@@ -38,7 +36,7 @@ export const PROGRAM = [
   { id: 'dips', name: 'Dips', category: 'Pecs', equip: 'bodyweight', type: 'bw_load', days: ['mar', 'dim'], sets: 2, repMin: 8, repMax: 12, superset: true, cue: 'Lest en kg · ' + ECHEC.toLowerCase() },
   { id: 'tirage-vertical-poulie', name: 'Tirage vertical machine', category: 'Dos', equip: 'machine', type: 'load', days: ['mar', 'dim'], sets: 2, repMin: 8, repMax: 12, cue: 'En superset avec les dips · ' + ECHEC.toLowerCase() },
   { id: 'psoas-march', name: 'Flexion de hanche poulie (couché)', category: 'Board-off', equip: 'machine', type: 'load', days: ['ven'], sets: 2, repMin: 6, repMax: 10, side: true, superset: true, cue: 'Couché sur le dos, poulie basse à la cheville · genou au-delà de 90°, vers la poitrine · maintien 2 s en haut · par jambe' },
-  { id: 'compression-pike', name: 'Compression active pike', category: 'Board-off', equip: 'bodyweight', type: 'time', days: ['ven', 'jeu'], sets: 2, timeMin: 3, timeMax: 10, cue: 'Assis jambes tendues, mains au sol à côté des cuisses : pousse dans les mains et décolle les talons de 2-5 cm · tiens (s)' },
+  { id: 'compression-pike', name: 'Compression active pike', category: 'Board-off', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 3, timeMax: 10, cue: 'Assis jambes tendues, mains au sol à côté des cuisses : pousse dans les mains et décolle les talons de 2-5 cm · tiens (s)' },
   { id: 'pallof-press', name: 'Bûcheron poulie haute → bas', category: 'Abdos', equip: 'machine', type: 'load', days: ['ven'], sets: 2, repMin: 10, repMax: 15, side: true, cue: 'Bras tendus, diagonale vers la hanche opposée en enroulant le tronc · par côté' },
   { id: 'trapeze-moyen-incline', name: 'Tirage penché haltères (trapèze moyen)', category: 'Dos', equip: 'db2t', type: 'load', days: ['dim'], sets: 2, repMin: 8, repMax: 12, superset: true, cue: 'Penché en avant, coudes vers l\'extérieur, serrer les omoplates · poids total des 2 haltères' },
   { id: 'deltoide-anterieur', name: 'Élévations frontales', category: 'Épaules', equip: 'db2', type: 'load', days: ['dim'], sets: 1, repMin: 8, repMax: 15, cue: '1 série à l\'échec : l\'avant de l\'épaule travaille déjà au couché et aux dips' },
@@ -49,11 +47,6 @@ export const PROGRAM = [
   { id: 'iso-deltoide-90', name: 'Maintien bras à 90° (deltoïdes)', category: 'Épaules', equip: 'db2', type: 'load_time', days: ['dim'], sets: 2, timeMin: 20, timeMax: 40, cue: 'Haltères bras tendus à l\'horizontale · kg par haltère' },
   { id: 'rotation-externe-epaule', name: 'Rotation externe épaule', category: 'Épaules', equip: 'band', type: 'reps', days: ['dim'], sets: 1, repMin: 12, repMax: 20, cue: 'Prévention épaule (kite) · 1 série suffit' },
   // Jeudi — mobilité à la maison (≈ 15 min, sans matériel). Souplesse = ≥ 5 min d'étirement / muscle / semaine, jamais douloureux.
-  { id: 'chat-chameau', name: 'Chat-chameau (enroulement du bassin)', category: 'Mobilité', equip: 'bodyweight', type: 'reps', days: ['jeu'], sets: 2, repMin: 10, repMax: 12, cue: 'À 4 pattes · enroule le bassin et arrondis le dos lentement, puis creuse · même geste qu\'en haut du tuck' },
-  { id: 'etirement-pike-assis', name: 'Pike assis (étirement ischios)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['jeu'], sets: 2, timeMin: 45, timeMax: 60, cue: 'Assis jambes tendues, bascule le bassin en avant, dos long · tension nette mais pas de douleur · respire' },
-  { id: 'ischios-pnf', name: 'Ischios PNF couché (contracté-relâché)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['jeu'], sets: 2, timeMin: 30, timeMax: 45, side: true, cue: 'Couché, jambe tendue vers le plafond tenue aux mains · pousse le talon contre les mains 6 s, relâche, gagne de l\'amplitude 20 s · 2 cycles · par jambe' },
-  { id: 'ecart-actif', name: 'Écart actif (straddle)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['jeu'], sets: 2, timeMin: 30, timeMax: 45, cue: 'Assis jambes écartées, penche-toi en avant dos plat · ouverture de hanche pour sortir le pied avant (version aileron)' },
-  { id: 'figure-4-assis', name: 'Figure 4 assis (rotation externe de hanche)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['jeu'], sets: 2, timeMin: 30, timeMax: 45, side: true, cue: 'Cheville sur le genou opposé, penche-toi en avant · par côté' },
 ];
 
 // Programme précédent (1.2) — sert à savoir si tu as modifié un exercice : si oui, la mise à jour n'y touche pas.
@@ -82,6 +75,11 @@ export const CATEGORIES = ['Board-off', 'Mobilité', 'Abdos', 'Dos', 'Pecs', 'É
 
 // Proposés hors programme (anciens exercices), à activer d'un tap.
 export const EXTRA = [
+  { id: 'chat-chameau', name: 'Chat-chameau (enroulement du bassin)', category: 'Mobilité', equip: 'bodyweight', type: 'reps', days: ['ven'], sets: 2, repMin: 10, repMax: 12, cue: 'À 4 pattes · enroule le bassin et arrondis le dos lentement, puis creuse · même geste qu\'en haut du tuck' },
+  { id: 'etirement-pike-assis', name: 'Pike assis (étirement ischios)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 45, timeMax: 60, cue: 'Assis jambes tendues, bascule le bassin en avant, dos long · tension nette mais pas de douleur · respire' },
+  { id: 'ischios-pnf', name: 'Ischios PNF couché (contracté-relâché)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 30, timeMax: 45, side: true, cue: 'Couché, jambe tendue vers le plafond tenue aux mains · pousse le talon contre les mains 6 s, relâche, gagne de l\'amplitude 20 s · 2 cycles · par jambe' },
+  { id: 'ecart-actif', name: 'Écart actif (straddle)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 30, timeMax: 45, cue: 'Assis jambes écartées, penche-toi en avant dos plat · ouverture de hanche pour sortir le pied avant (version aileron)' },
+  { id: 'figure-4-assis', name: 'Figure 4 assis (rotation externe de hanche)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 30, timeMax: 45, side: true, cue: 'Cheville sur le genou opposé, penche-toi en avant · par côté' },
   { id: 'maintien-jambes-90', name: 'Maintien jambes à 90°', category: 'Board-off', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 10, timeMax: 30, cue: 'Jambes tendues · moins spécifique que le tuck' },
   { id: 'developpe-epaules', name: 'Développé épaules', category: 'Épaules', equip: 'db2', type: 'load', days: ['dim'], sets: 2, repMin: 8, repMax: 12 },
   { id: 'curl-marteau', name: 'Curl marteau', category: 'Biceps', equip: 'db2', type: 'load', days: ['dim'], sets: 2, repMin: 8, repMax: 12, cue: 'Descente 3 s' },

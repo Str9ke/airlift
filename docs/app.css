@@ -309,3 +309,8 @@ body.kp-open .sheet { padding-bottom: 300px; }
 body.kp-open .sheet-foot { visibility: hidden; }
 .sheet.full { padding-bottom: 0; }
 body.kp-open .sheet.full { padding-bottom: 300px; }
+
+/* en-tête des cartes d'exercice : titre collé à l'image, rien ne se chevauche */
+.log-ex > .row:first-child .illu-btn { width: auto; flex: none; }
+.log-ex > .row:first-child h3 { flex: 1 1 auto; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+.log-ex > .row:first-child > span, .log-ex > .row:first-child .mini-btn { flex: none; }

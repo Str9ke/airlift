@@ -7,7 +7,7 @@ import { lineChart, sparkline, fdate } from './charts.js';
 import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.8.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -90,6 +90,8 @@ const dayTag = id => { const d = dayOf(id); return d ? `<span class="tag t-${esc
 const unitW = e => e.type === 'bw_load' ? 'lest kg' : e.type === 'assisted' ? 'assist. kg' : 'kg';
 
 function render() {
+  if (ui.day !== 'all' && !dayOf(ui.day)) ui.day = 'all';
+  if (ui.histDay && ui.histDay !== 'all' && !dayOf(ui.histDay)) ui.histDay = 'all';
   if (kp.open) kpClose();
   applyTheme();
   $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
@@ -265,7 +267,7 @@ function bindRows(v) {
     const id = r.dataset.id;
     $('[data-open]', r).onclick = () => openExercise(id);
     const m = $('[data-menu]', r); if (m) m.onclick = () => exMenu(id);
-    const rs = $('[data-restore]', r); if (rs) rs.onclick = () => { const e = getEx(id); e.active = true; e.order = 9999; normalizeOrder(); commit(); toast(`« ${e.name} » remis dans le programme`); render(); };
+    const rs = $('[data-restore]', r); if (rs) rs.onclick = () => { const e = getEx(id); e.active = true; if (!e.days.length) e.days = [DAYS_()[0].id]; e.order = 9999; normalizeOrder(); commit(); toast(`« ${e.name} » remis dans le programme`); render(); };
   });
 }
 
@@ -549,7 +551,7 @@ function renderLog(v) {
   $('#l-restart', v).onclick = () => { d.startedAt = Date.now(); saveDraft(d); render(); toast('Chrono remis à zéro'); };
   $('#l-date', v).onchange = ev => { d.date = ev.target.value; saveDraft(d); };
   $('#l-note', v).oninput = ev => { d.note = ev.target.value; saveDraft(d); };
-  $('#l-add', v).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push({ ex: id, sets: Array.from({ length: e.sets || 3 }, () => ({})) }); saveDraft(d); render(); });
+  $('#l-add', v).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push({ ex: id, sets: Array.from({ length: e.sets || 3 }, () => ({})) }); saveDraft(d); render(); }, d.entries.map(en => en.ex));
   $('#l-cancel', v).onclick = () => deleteDraft();
   $('#l-finish', v).onclick = () => finishSession(d);
 }
@@ -605,8 +607,9 @@ function sessionEditor(host, d, onChange, opts = {}) {
   });
 }
 
-function pickExercise(cb) {
-  const all = S().exercises.slice().sort((a, b) => (b.active - a.active) || a.name.localeCompare(b.name));
+function pickExercise(cb, exclude = []) {
+  const ex0 = new Set(exclude);
+  const all = S().exercises.filter(e => !ex0.has(e.id)).sort((a, b) => (b.active - a.active) || a.name.localeCompare(b.name));
   const sh = sheet(`<div class="sheet-head"><h2>Ajouter un exercice</h2><button class="icon-btn" data-close>${ICON.x}</button></div>
     <input id="pk-q" placeholder="Rechercher…" style="margin-bottom:10px"><div class="menu" id="pk-list"></div>`);
   const draw = () => { const q = $('#pk-q', sh).value.toLowerCase(); $('#pk-list', sh).innerHTML = all.filter(e => e.name.toLowerCase().includes(q)).slice(0, 60).map(e => `<button data-id="${e.id}">${esc(e.name)} ${e.active ? '' : '<span class="muted">· ancien</span>'}</button>`).join(''); $$('#pk-list button', sh).forEach(b => b.onclick = () => { sh.close(); cb(b.dataset.id); }); };
@@ -817,7 +820,7 @@ function editSession(s) {
   const iS = $('#es-start', sh), iE = $('#es-end', sh), iD = $('#es-dur', sh);
   iS.onchange = iE.onchange = () => { if (iS.value && iE.value) iD.value = (toMin(iE.value) - toMin(iS.value) + 1440) % 1440 || ''; else if (iS.value && iD.value) iE.value = fromMin(toMin(iS.value) + +iD.value); };
   iD.oninput = () => { if (iS.value && +iD.value > 0) iE.value = fromMin(toMin(iS.value) + +iD.value); };
-  $('#es-add', sh).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push({ ex: id, sets: Array.from({ length: setsOn(e, $('#es-day', sh).value || null) || 2 }, () => ({})) }); ed(); setTimeout(() => $$('.log-ex', sh).at(-1)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50); });
+  $('#es-add', sh).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push({ ex: id, sets: Array.from({ length: setsOn(e, $('#es-day', sh).value || null) || 2 }, () => ({})) }); ed(); setTimeout(() => $$('.log-ex', sh).at(-1)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50); }, d.entries.map(en => en.ex));
   const save = () => {
     const entries = cleanEntries(d);
     if (!entries.length) { toast(isNew ? 'Ajoute au moins une série remplie' : 'Aucune série : utilise « Supprimer » pour effacer la séance'); return false; }

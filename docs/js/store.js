@@ -104,6 +104,17 @@ MIGRATIONS.push({ id: '2026-11-16-programme-1.5', run(st) {
   EXTRA.forEach((p, i) => { if (!byId.has(p.id)) st.exercises.push(normalizeExercise({ ...p, active: false, order: 500 + i }, i)); });
 } });
 
+MIGRATIONS.push({ id: '2026-11-17-sans-jeudi', run(st) {
+  // demandé : plus de journée mobilité du jeudi (s'applique même aux exercices modifiés)
+  st.days = st.days.filter(d => d.id !== 'jeu');
+  for (const e of st.exercises) {
+    if (!e.days.includes('jeu')) continue;
+    e.days = e.days.filter(d => d !== 'jeu');
+    if (e.daySets) delete e.daySets.jeu;
+    if (!e.days.length) e.active = false;
+  }
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'xlsx-2026-11-16', run(st) {
