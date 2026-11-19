@@ -1,4 +1,4 @@
 {
- "version": "1.8.0",
- "notes": "Journée mobilité du jeudi retirée, plus de doublon possible en ajoutant un exercice à une séance, titre des exercices collé à l'image et sans chevauchement"
+ "version": "1.9.0",
+ "notes": "Séance personnalisée (exercices actuels, anciens ou nouveaux), exercice Montée sur la pointe des pieds, muscles et schéma pour chaque exercice, carte des muscles dans Corps : intensité de travail par jour et par semaine, force vs record par muscle, muscles oubliés"
 }

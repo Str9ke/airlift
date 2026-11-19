@@ -115,6 +115,11 @@ MIGRATIONS.push({ id: '2026-11-17-sans-jeudi', run(st) {
   }
 } });
 
+MIGRATIONS.push({ id: '2026-11-19-mollets', run(st) {
+  const p = EXTRA.find(x => x.id === 'mollets-pointe');
+  if (p) addIfMissing(st, p, false); // créé, disponible (séance personnalisée, ajout à un jour), pas imposé dans le programme
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'xlsx-2026-11-16', run(st) {

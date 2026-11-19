@@ -6,16 +6,17 @@ import { EQUIP, TYPES, CATEGORIES, WEEKDAYS } from './program.js';
 import { lineChart, sparkline, fdate } from './charts.js';
 import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
+import * as MZ from './muscles.js';
 
-export const APP_VERSION = '1.8.0';
+export const APP_VERSION = '1.9.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const ui = { tab: 'prog', day: 'all', showArch: false, archFilter: '', statRange: 'all', bodyRange: 'all', histLimit: 60, histDay: 'all', histYear: '', histQ: '' };
+const ui = { tab: 'prog', day: 'all', showArch: false, archFilter: '', statRange: 'all', bodyRange: 'all', histLimit: 60, histDay: 'all', histYear: '', histQ: '', bodyView: 'muscles', mzView: 'week' };
 try { Object.assign(ui, JSON.parse(localStorage.getItem('airlift.ui') || '{}')); } catch (e) { /* */ }
-const saveUi = () => { try { localStorage.setItem('airlift.ui', JSON.stringify({ tab: ui.tab, day: ui.day, statRange: ui.statRange, bodyRange: ui.bodyRange })); } catch (e) { /* */ } };
+const saveUi = () => { try { localStorage.setItem('airlift.ui', JSON.stringify({ tab: ui.tab, day: ui.day, statRange: ui.statRange, bodyRange: ui.bodyRange, bodyView: ui.bodyView, mzView: ui.mzView })); } catch (e) { /* */ } };
 
 const ICON = {
   grip: '<svg viewBox="0 0 16 16"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></svg>',
@@ -124,6 +125,7 @@ function exRow(e, archived = false) {
     ${archived ? '<span style="width:6px"></span>' : `<span class="handle" aria-label="Déplacer">${ICON.grip}</span>`}
     <div class="grow" data-open>
       <div class="name">${archived ? '' : e.days.map(dayTag).join('')}${esc(e.name)}${!archived && e.superset ? ' <span class="tag ss" title="Superset : enchaîner avec le suivant">⇄</span>' : ''}</div>
+      ${MZ.musclesText(e) ? `<div class="mus">${esc(MZ.musclesText(e))}</div>` : ''}
       <div class="meta">${archived ? (st.last ? `${esc(recent)} · il y a ${C.fmtDuration(since)}` : 'Aucune donnée') : `${rangeOf(e, ui.day === 'all' ? null : ui.day)}${recent ? ' · ' + esc(recent) : ''}`}</div>
     </div>
     ${next}
@@ -299,11 +301,12 @@ function exMenu(id) {
 }
 
 // ---------------------------------------------------------------- édition exercice
-function editExercise(e) {
+function editExercise(e, { onSaved = null, free = false } = {}) {
   const isNew = !e;
-  const d = e ? { ...e } : normalizeExercise({ name: '', active: true, days: ui.day !== 'all' ? [ui.day] : [], equip: 'machine', type: 'load', category: 'Autre' });
+  const d = e ? { ...e } : normalizeExercise({ name: '', active: true, days: !free && ui.day !== 'all' ? [ui.day] : [], equip: 'machine', type: 'load', category: 'Autre' });
+  const mz = { p: [...MZ.muscleOf(d).p], s: [...MZ.muscleOf(d).s] };
   const sh = sheet(`<div class="sheet-head"><h2>${isNew ? 'Nouvel exercice' : 'Modifier'}</h2><button class="icon-btn" data-close>${ICON.x}</button></div>
-    <div class="field"><label>Nom</label><input id="f-name" value="${esc(d.name)}" placeholder="ex. Curl marteau"></div>
+    <div class="field"><label>Nom</label><input id="f-name" value="${isNew ? '' : esc(d.name)}" placeholder="ex. Curl marteau"></div>
     <div class="field"><label>Illustration</label><div class="row" style="gap:10px;align-items:center">${illuHTML(d, 'thumb lg')}<div class="grow"><button class="btn sm" id="f-illu" type="button">Changer l'illustration…</button></div></div></div>
     <div class="field"><label>Jours du programme</label><div class="seg" id="f-days">${DAYS_().map(x => `<button data-v="${x.id}" class="${d.days.includes(x.id) ? 'on' : ''}">${esc(x.label)}</button>`).join('')}</div></div>
     <div class="field"><label>Matériel</label><div class="seg" id="f-equip">${Object.entries(EQUIP).map(([k, x]) => `<button data-v="${k}" class="${d.equip === k ? 'on' : ''}">${x.label}</button>`).join('')}</div><div class="hint" id="f-equip-hint">${EQUIP[d.equip]?.hint || ''}</div></div>
@@ -320,7 +323,14 @@ function editExercise(e) {
     <label class="check-row"><input type="checkbox" id="f-ss" ${d.superset ? 'checked' : ''}> Superset : enchaîner avec l'exercice suivant du jour, puis repos (gain de temps)</label>
     <div class="field"><label>Catégorie</label><select id="f-cat">${CATEGORIES.map(c => `<option ${c === d.category ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Consigne / repère</label><input id="f-cue" value="${esc(d.cue)}" placeholder="ex. descente 3 s"></div>
-    <button class="btn primary block" id="f-save">${isNew ? 'Ajouter au programme' : 'Enregistrer'}</button>`);
+    <div class="field"><label>Muscles <span class="muted">· 1 appui = principal, 2 = secondaire, 3 = aucun</span></label><div id="f-mz-fig"></div><div class="seg mz-seg" id="f-mz"></div></div>
+    <button class="btn primary block" id="f-save">${isNew ? (free ? 'Créer l\'exercice' : 'Ajouter au programme') : 'Enregistrer'}</button>`);
+  const drawMz = () => {
+    $('#f-mz-fig', sh).innerHTML = MZ.bodySVG(id => mz.p.includes(id) ? { c: 'var(--mz-p)' } : mz.s.includes(id) ? { c: 'var(--mz-s)' } : { c: 'var(--mz-0)' }, { small: true });
+    $('#f-mz', sh).innerHTML = MZ.MUSCLES.map(m => `<button type="button" data-m="${m.id}" class="${mz.p.includes(m.id) ? 'on' : mz.s.includes(m.id) ? 'half' : ''}">${esc(m.short)}</button>`).join('');
+    $$('#f-mz button', sh).forEach(b => b.onclick = () => { const id = b.dataset.m; if (mz.p.includes(id)) { mz.p = mz.p.filter(x => x !== id); mz.s.push(id); } else if (mz.s.includes(id)) mz.s = mz.s.filter(x => x !== id); else mz.p.push(id); drawMz(); });
+  };
+  drawMz();
   const seg = (id, multi) => $$(`#${id} button`, sh).forEach(b => b.onclick = () => {
     if (multi) b.classList.toggle('on'); else { $$(`#${id} button`, sh).forEach(x => x.classList.remove('on')); b.classList.add('on'); }
     if (id === 'f-equip') { $('#f-equip-hint', sh).textContent = EQUIP[b.dataset.v].hint; $('#f-inc', sh).value = EQUIP[b.dataset.v].inc; }
@@ -347,10 +357,13 @@ function editExercise(e) {
     });
 
     if (t.repMax < t.repMin) t.repMax = t.repMin;
-    if (isNew) { t.id = uid(); t.active = true; t.order = 9999; S().exercises.push(t); normalizeOrder(); }
+    const auto = MZ.EX_MUSCLES[t.id];
+    if (auto && auto.p.join() === mz.p.join() && auto.s.join() === mz.s.join()) delete t.muscles; else t.muscles = { p: mz.p, s: mz.s };
+    if (isNew) { t.id = uid(); t.active = !free || t.days.length > 0; t.order = 9999; S().exercises.push(t); normalizeOrder(); }
     t.userEdited = true;
-    C.invalidate(); S()._rev = (S()._rev || 0) + 1; commit(); sh.close(); render();
-    toast(isNew ? 'Exercice ajouté' : 'Enregistré');
+    C.invalidate(); S()._rev = (S()._rev || 0) + 1; commit(); sh.close();
+    if (onSaved) onSaved(t); else render();
+    toast(isNew ? 'Exercice créé' : 'Enregistré');
   };
 }
 
@@ -383,6 +396,7 @@ function openExercise(id) {
   const sg = C.suggest(e);
   const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-close>${ICON.back}</button><h2>${esc(e.name)}</h2><button class="icon-btn" id="d-menu">${ICON.dots}</button></div>
     <button class="illu-btn" id="d-illu" aria-label="Changer l'illustration">${illuHTML(e, 'hero')}</button>
+    ${muscleCard(e)}
     <div class="sub">${e.active ? e.days.map(dayTag).join('') + rangeOf(e) : '<span class="tag">Hors programme</span>'} · ${EQUIP[e.equip]?.label || ''} · ${TYPES[e.type]}${e.cue ? ' · ' + esc(e.cue) : ''}</div>
     ${st.n ? `<div class="kpis">
       <div class="kpi"><b>${fmt(st.last.perf)}<small> ${unit}</small></b><span>${C.perfLabel(e)} actuel</span></div>
@@ -507,10 +521,10 @@ async function deleteDraft() {
   saveDraft(null); render(); toast('Séance supprimée');
 }
 
-function startSession(day) {
+function startSession(day, ids = null) {
   const cur = loadDraft();
   if (cur) { setTab('log'); toast('Une séance est déjà en cours — termine-la ou supprime-la'); return; }
-  const list = S().exercises.filter(e => e.active && (!day || e.days.includes(day))).sort((a, b) => a.order - b.order);
+  const list = ids ? ids.map(getEx).filter(Boolean) : S().exercises.filter(e => e.active && (!day || e.days.includes(day))).sort((a, b) => a.order - b.order);
   saveDraft({ id: uid(), date: today(), day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => ({ ex: e.id, sets: Array.from({ length: setsOn(e, day) }, () => ({})) })) });
   setTab('log');
 }
@@ -522,13 +536,14 @@ function renderLog(v) {
     const td = todayDay();
     v.innerHTML = `<h1>Séance</h1><p class="sub">Choisis la séance du jour : le chrono démarre aussitôt. Les charges proposées tiennent compte de ta dernière fois et des incréments réels de chaque matériel.</p>
       <div class="menu">${DAYS_().map(x => `<button data-start="${x.id}" class="${td?.id === x.id ? 'today' : ''}"><div class="row"><span class="grow">${esc(x.label)}${td?.id === x.id ? ' <span class="tag">aujourd\'hui</span>' : ''}</span><span class="muted">${S().exercises.filter(e => e.active && e.days.includes(x.id)).length} exos ›</span></div></button>`).join('')}
-      <button data-start=""><div class="row"><span class="grow">Séance libre (tout le programme)</span><span class="muted">›</span></div></button></div>
+      <button data-custom><div class="row"><span class="grow">Séance personnalisée<br><small class="muted">tes exercices actuels, les anciens ou un nouveau</small></span><span class="muted">›</span></div></button></div>
       ${last ? `<p class="sub" style="margin-top:16px">Dernière séance : ${fdate(last.date)} (il y a ${C.fmtDuration(daysBetween(last.date, today()))}).</p>` : ''}`;
     $$('[data-start]', v).forEach(b => b.onclick = () => startSession(b.dataset.start || null));
+    $('[data-custom]', v).onclick = () => customSession();
     return;
   }
   if (!d.startedAt) d.startedAt = Date.now();
-  v.innerHTML = `<div class="row" style="margin-top:6px"><h1 class="grow" style="margin:0">${d.day ? esc(dayOf(d.day)?.label || 'Séance') : 'Séance libre'}</h1></div>
+  v.innerHTML = `<div class="row" style="margin-top:6px"><h1 class="grow" style="margin:0">${d.day ? esc(dayOf(d.day)?.label || 'Séance') : 'Séance personnalisée'}</h1></div>
     <div class="timer-bar">
       <div class="tb-main"><span class="tb-l">Durée</span><b data-clock="${d.startedAt}">${clock(d.startedAt)}</b><span class="tb-s">depuis ${hhmm(d.startedAt)}</span></div>
       <div class="tb-rest"><span class="tb-l">Repos</span><b data-rest="${d.lastSetAt || ''}" data-goal="${d.restGoal || ''}">${d.lastSetAt ? clock(d.lastSetAt) : '–'}</b><span class="tb-s">${esc(d.restLabel || 'objectif ' + clock(1, 1 + (S().settings.restSec || 120) * 1000))}</span></div>
@@ -569,6 +584,7 @@ function sessionEditor(host, d, onChange, opts = {}) {
     const done = en.sets.length && en.sets.every(s => s.done);
     return `<div class="log-ex ${done ? 'done' : ''}" data-ei="${ei}">
       <div class="row" style="gap:10px"><button class="illu-btn" data-illu aria-label="Voir l'exercice">${illuHTML(e, 'thumb')}</button><h3 class="grow">${esc(e.name)}</h3>${reorder && ei > 0 ? `<button class="mini-btn" data-up aria-label="Monter">↑</button>` : ''}<span style="margin-right:4px">${sparkline(prev.map(h => h.perf), { w: 54, h: 20 })}</span><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>
+      ${MZ.musclesText(e) ? `<div class="mus">${esc(MZ.musclesText(e))}</div>` : ''}
       ${e.cue ? `<div class="cue">${esc(e.cue)}</div>` : ''}
       ${e.superset && d.entries[ei + 1] && getEx(d.entries[ei + 1].ex) ? `<div class="cue ss">⇄ Superset : enchaîne sans repos avec « ${esc(getEx(d.entries[ei + 1].ex).name)} », puis récupère.</div>` : ''}
       ${prev.length ? `<div class="prev">${prev.map(h => `${fdate(h.date).replace(/ \d{4}$/, '')} : ${esc(C.fmtEntry(e, h.entry))}`).join('<br>')}</div>` : '<div class="prev">Première fois — note ta charge de départ.</div>'}
@@ -609,11 +625,55 @@ function sessionEditor(host, d, onChange, opts = {}) {
 
 function pickExercise(cb, exclude = []) {
   const ex0 = new Set(exclude);
-  const all = S().exercises.filter(e => !ex0.has(e.id)).sort((a, b) => (b.active - a.active) || a.name.localeCompare(b.name));
+  const inProg = S().exercises.filter(e => e.active && !ex0.has(e.id)).sort((a, b) => a.order - b.order);
+  const outProg = S().exercises.filter(e => !e.active && !ex0.has(e.id)).map(e => ({ e, st: C.exStats(e.id) })).sort((a, b) => (b.st.last?.date || '').localeCompare(a.st.last?.date || ''));
   const sh = sheet(`<div class="sheet-head"><h2>Ajouter un exercice</h2><button class="icon-btn" data-close>${ICON.x}</button></div>
-    <input id="pk-q" placeholder="Rechercher…" style="margin-bottom:10px"><div class="menu" id="pk-list"></div>`);
-  const draw = () => { const q = $('#pk-q', sh).value.toLowerCase(); $('#pk-list', sh).innerHTML = all.filter(e => e.name.toLowerCase().includes(q)).slice(0, 60).map(e => `<button data-id="${e.id}">${esc(e.name)} ${e.active ? '' : '<span class="muted">· ancien</span>'}</button>`).join(''); $$('#pk-list button', sh).forEach(b => b.onclick = () => { sh.close(); cb(b.dataset.id); }); };
+    <input id="pk-q" placeholder="Rechercher…" style="margin-bottom:8px">
+    <button class="btn block" id="pk-new" style="margin-bottom:6px">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Créer un nouvel exercice</button>
+    <div id="pk-list"></div>`, { full: true });
+  const item = (e, extra) => `<button class="pick-row" data-id="${e.id}">${illuHTML(e, 'thumb')}<span class="grow"><b>${esc(e.name)}</b><small>${extra}</small></span><span class="pick-plus">${ICON.plus}</span></button>`;
+  const draw = () => {
+    const q = $('#pk-q', sh).value.toLowerCase();
+    const f = e => e.name.toLowerCase().includes(q) || MZ.musclesText(e).includes(q);
+    const a1 = inProg.filter(f), b1 = outProg.filter(x => f(x.e));
+    $('#pk-list', sh).innerHTML = `<h3 class="pick-h">Programme actuel (${a1.length})</h3>${a1.map(e => item(e, [e.days.map(d => dayOf(d)?.short).join(' · '), MZ.musclesText(e)].filter(Boolean).join(' · '))).join('') || '<div class="empty">—</div>'}
+      <h3 class="pick-h">Anciens et hors programme (${b1.length})</h3>${b1.slice(0, 120).map(({ e, st }) => item(e, [st.last ? `dernière fois ${fdate(st.last.date)}` : 'jamais fait', MZ.musclesText(e)].filter(Boolean).join(' · '))).join('')}`;
+    $$('.pick-row', sh).forEach(btn => btn.onclick = () => { sh.close(); cb(btn.dataset.id); });
+  };
   $('#pk-q', sh).oninput = draw; draw();
+  $('#pk-new', sh).onclick = () => { sh.close(); editExercise(null, { free: true, onSaved: t => cb(t.id) }); };
+}
+
+// ---------------------------------------------------------------- séance personnalisée
+function customSession() {
+  const sel = [];
+  const inProg = S().exercises.filter(e => e.active).sort((a, b) => a.order - b.order);
+  const outProg = () => S().exercises.filter(e => !e.active).map(e => ({ e, st: C.exStats(e.id) })).sort((a, b) => (b.st.last?.date || '').localeCompare(a.st.last?.date || ''));
+  const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-close>${ICON.back}</button><h2>Séance personnalisée</h2></div>
+    <p class="sub">Coche les exercices dans l'ordre où tu veux les faire : programme actuel, anciens exercices, ou un nouveau.</p>
+    <input id="cs-q" placeholder="Rechercher un exercice ou un muscle…" style="margin-bottom:8px">
+    <button class="btn block" id="cs-new" style="margin-bottom:6px">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Créer un nouvel exercice</button>
+    <div id="cs-mz"></div>
+    <div id="cs-list"></div>
+    <div class="sheet-foot"><button class="btn primary block" id="cs-go"></button></div>`, { full: true });
+  const item = (e, extra) => { const i = sel.indexOf(e.id); return `<button class="pick-row ${i >= 0 ? 'sel' : ''}" data-id="${e.id}">${illuHTML(e, 'thumb')}<span class="grow"><b>${esc(e.name)}</b><small>${extra}</small></span><span class="pick-n">${i >= 0 ? i + 1 : ''}</span></button>`; };
+  const foot = () => {
+    const b = $('#cs-go', sh); b.textContent = sel.length ? `Démarrer · ${sel.length} exercice${sel.length > 1 ? 's' : ''}` : 'Choisis au moins un exercice'; b.disabled = !sel.length;
+    const ms = new Set(sel.flatMap(id => MZ.muscleOf(getEx(id)).p));
+    $('#cs-mz', sh).innerHTML = sel.length ? `<div class="card mz-mini">${MZ.bodySVG(id => ms.has(id) ? { c: 'var(--mz-p)' } : sel.some(x => MZ.muscleOf(getEx(x)).s.includes(id)) ? { c: 'var(--mz-s)' } : { c: 'var(--mz-0)' }, { small: true })}<div class="sub" style="margin:4px 0 0">Muscles travaillés : ${esc([...ms].map(id => MZ.MUSCLE[id].short).join(', '))}</div></div>` : '';
+  };
+  const draw = () => {
+    const q = $('#cs-q', sh).value.toLowerCase();
+    const f = e => e.name.toLowerCase().includes(q) || MZ.musclesText(e).includes(q);
+    const a1 = inProg.filter(f), b1 = outProg().filter(x => f(x.e));
+    $('#cs-list', sh).innerHTML = `<h3 class="pick-h">Programme actuel (${a1.length})</h3>${a1.map(e => item(e, [e.days.map(d => dayOf(d)?.short).join(' · '), MZ.musclesText(e)].filter(Boolean).join(' · '))).join('')}
+      <h3 class="pick-h">Anciens et hors programme (${b1.length})</h3>${b1.slice(0, 150).map(({ e, st }) => item(e, [st.last ? `${st.n} séance${st.n > 1 ? 's' : ''} · dernière ${fdate(st.last.date)}` : 'jamais fait', MZ.musclesText(e)].filter(Boolean).join(' · '))).join('')}`;
+    $$('.pick-row', sh).forEach(btn => btn.onclick = () => { const id = btn.dataset.id, i = sel.indexOf(id); if (i >= 0) sel.splice(i, 1); else sel.push(id); draw(); });
+    foot();
+  };
+  $('#cs-q', sh).oninput = draw; draw();
+  $('#cs-new', sh).onclick = () => editExercise(null, { free: true, onSaved: t => { sel.push(t.id); draw(); } });
+  $('#cs-go', sh).onclick = () => { if (!sel.length) return; sh.close(); startSession(null, sel); };
 }
 
 function cleanEntries(d) {
@@ -699,13 +759,66 @@ const MEAS = [
   { k: 'taille', label: 'Tour de taille / fesses', unit: 'cm' },
   { k: 'cuisse', label: 'Tour de cuisse', unit: 'cm' },
 ];
+function muscleCard(e) {
+  const m = MZ.muscleOf(e);
+  if (!m.p.length && !m.s.length) return '';
+  const names = ids => ids.map(id => MZ.MUSCLE[id]?.label).filter(Boolean).join(', ');
+  return `<div class="mz-ex">${MZ.exerciseBody(e)}<div class="mz-ex-t"><div><i class="mz-dot p"></i><b>Principaux</b> ${esc(names(m.p))}</div>${m.s.length ? `<div><i class="mz-dot s"></i><b>Secondaires</b> ${esc(names(m.s))}</div>` : ''}</div></div>`;
+}
+
+const mzTip = (host, info) => {
+  $$('[data-m]', host).forEach(g => g.onclick = () => {
+    $$('.mz.hl', host).forEach(x => x.classList.remove('hl'));
+    $$(`[data-m="${g.dataset.m}"]`, host).forEach(x => x.classList.add('hl'));
+    const t = $('.mz-tip', host); if (t) t.innerHTML = info(g.dataset.m);
+  });
+};
+function renderMuscles(v) {
+  const kind = ui.mzView === 'done' ? 'done' : ui.mzView === 'week' ? 'week' : 'day';
+  if (kind === 'day' && !dayOf(ui.mzView)) ui.mzView = 'week';
+  const vol = ui.mzView === 'done' ? MZ.doneVolume(28) : MZ.planVolume(ui.mzView === 'week' ? null : ui.mzView);
+  const scale = kind === 'day' ? 'day' : 'week';
+  const unit = kind === 'day' ? 'séries' : 'séries/sem';
+  const b = MZ.VOL_STEPS[scale];
+  const volFill = id => { const l = MZ.volLevel(vol.get(id)?.sets || 0, scale); return l ? { c: `var(--mzv${l})` } : { c: 'var(--mz-off)', cls: 'off' }; };
+  const str = MZ.strengthByMuscle(90);
+  const strFill = id => { const x = str.get(id); return x.status === 'ok' ? { c: `var(--mzs${MZ.strLevel(x.pct)})` } : x.status === 'old' ? { c: 'var(--mz-off)', cls: 'off' } : { c: 'var(--mz-0)' }; };
+  const f1 = n => fmt(n, n % 1 ? 1 : 0);
+  const volRows = MZ.MUSCLES.map(m => ({ m, r: vol.get(m.id) })).sort((x, y) => (y.r?.sets || 0) - (x.r?.sets || 0));
+  const max = Math.max(1, ...volRows.map(x => x.r?.sets || 0));
+  const exList = (r, k = 4) => { const l = [...r.ex.values()].sort((a, c) => (a.role > c.role) - (a.role < c.role) || c.n - a.n).map(x => `${x.e.name}${x.role === 's' ? ' (2nd)' : ''}`); return l.slice(0, k).join(', ') + (l.length > k ? ` +${l.length - k}` : ''); };
+  const strRows = MZ.MUSCLES.map(m => ({ m, x: str.get(m.id) })).sort((a, c) => (a.x.status === 'ok' ? a.x.pct : a.x.status === 'old' ? -1 : -2) - (c.x.status === 'ok' ? c.x.pct : c.x.status === 'old' ? -1 : -2));
+  v.insertAdjacentHTML('beforeend', `
+    <div class="chips" id="mz-view">${[['week', 'Semaine complète'], ...DAYS_().map(d => [d.id, WEEKDAYS[d.wd] ?? d.label]), ['done', 'Réalisé (4 sem.)']].map(([k, l]) => `<button class="chip ${ui.mzView === k ? 'on' : ''}" data-v="${k}">${esc(l)}</button>`).join('')}</div>
+    <div class="card" id="mz-vol"><b>Intensité de travail par muscle</b>
+      <div class="sub" style="margin:2px 0 8px">${ui.mzView === 'done' ? 'Séries réellement faites ces 4 dernières semaines, ramenées à une semaine.' : kind === 'week' ? 'Séries prévues par semaine dans ton programme.' : `Séries prévues le ${esc((WEEKDAYS[dayOf(ui.mzView).wd] || '').toLowerCase())}.`} Muscle principal = 1 série, secondaire = ½. Touche un muscle pour le détail.</div>
+      ${MZ.bodySVG(volFill)}
+      <div class="mz-legend"><span><i style="background:var(--mz-off)"></i>Oublié (0)</span><span><i style="background:var(--mzv1)"></i>≤ ${b[0]}</span><span><i style="background:var(--mzv2)"></i>${b[0]}–${b[1]}</span><span><i style="background:var(--mzv3)"></i>${b[1]}–${b[2]}</span><span><i style="background:var(--mzv4)"></i>&gt; ${b[2]} ${unit}</span></div>
+      <div class="mz-tip sub">Touche un muscle sur le schéma.</div>
+      <table class="mz-table"><tbody>${volRows.map(({ m, r }) => `<tr data-row="${m.id}"><td>${esc(m.label)}${r ? `<div class="muted mz-exs">${esc(exList(r))}</div>` : ''}</td><td class="r" style="width:42%">${r ? `<div class="mz-bar"><i style="width:${r.sets / max * 100}%;background:var(--mzv${MZ.volLevel(r.sets, scale)})"></i></div><small>${f1(r.sets)} ${unit}</small>` : '<span class="mz-off-tag">oublié</span>'}</td></tr>`).join('')}</tbody></table>
+    </div>
+    <div class="card" id="mz-str"><b>Force par muscle vs ton record</b>
+      <div class="sub" style="margin:2px 0 8px">Pour chaque muscle : moyenne de (dernière performance ÷ record) des exercices où il est moteur principal, faits dans les 90 derniers jours. Orange = muscle qui a des records mais n'a plus été travaillé depuis 90 jours.</div>
+      ${MZ.bodySVG(strFill)}
+      <div class="mz-legend"><span><i style="background:var(--mz-off)"></i>Oublié &gt; 90 j</span><span><i style="background:var(--mzs1)"></i>&lt; ${MZ.STR_STEPS[0]} %</span><span><i style="background:var(--mzs2)"></i>${MZ.STR_STEPS[0]}–${MZ.STR_STEPS[1]} %</span><span><i style="background:var(--mzs3)"></i>${MZ.STR_STEPS[1]}–${MZ.STR_STEPS[2]} %</span><span><i style="background:var(--mzs4)"></i>≥ ${MZ.STR_STEPS[2]} % du max</span><span><i style="background:var(--mz-0)"></i>pas de données</span></div>
+      <div class="mz-tip sub">Touche un muscle sur le schéma.</div>
+      <table class="mz-table"><tbody>${strRows.map(({ m, x }) => `<tr data-row="${m.id}"><td>${esc(m.label)}${x.rows.length ? `<div class="muted mz-exs">${esc(x.rows.map(r => `${r.e.name} ${fmt(Math.min(100, r.st.level), 0)} %`).join(', '))}</div>` : ''}</td><td class="r" style="width:30%">${x.status === 'ok' ? `<b style="color:var(--text)">${fmt(x.pct, 0)} %</b><div class="mz-bar"><i style="width:${x.pct}%;background:var(--mzs${MZ.strLevel(x.pct)})"></i></div>` : x.status === 'old' ? `<span class="mz-off-tag">oublié</span><br><small class="muted">depuis ${fdate(x.last)}</small>` : '<small class="muted">pas de données</small>'}</td></tr>`).join('')}</tbody></table>
+    </div>`);
+  $$('#mz-view .chip', v).forEach(c => c.onclick = () => { ui.mzView = c.dataset.v; saveUi(); render(); });
+  mzTip($('#mz-vol', v), id => { const r = vol.get(id); return `<b>${esc(MZ.MUSCLE[id].label)}</b> · ${r ? `${f1(r.sets)} ${unit} · ${esc(exList(r, 99))}` : '<span class="mz-off-tag">oublié</span> aucun exercice ne le travaille ici'}`; });
+  mzTip($('#mz-str', v), id => { const x = str.get(id); return `<b>${esc(MZ.MUSCLE[id].label)}</b> · ${x.status === 'ok' ? `${fmt(x.pct, 0)} % du record (${esc(x.rows.map(r => r.e.name).join(', '))})` : x.status === 'old' ? `<span class="mz-off-tag">oublié</span> pas travaillé depuis ${fdate(x.last)}` : 'aucun exercice avec historique'}`; });
+}
+
 function renderBody(v) {
+  const seg = `<h1>Corps</h1><div class="seg body-seg" id="b-view">${[['muscles', 'Muscles'], ['mesures', 'Mesures']].map(([k, l]) => `<button data-v="${k}" class="${ui.bodyView === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  const bindSeg = () => $$('#b-view button', v).forEach(bt => bt.onclick = () => { ui.bodyView = bt.dataset.v; saveUi(); render(); });
+  if (ui.bodyView !== 'mesures') { v.innerHTML = seg; bindSeg(); renderMuscles(v); return; }
   const b = S().body;
   const br = C.breaks();
   const from = rangeStart(ui.bodyRange);
   const lastOf = k => b.filter(x => x[k] != null).at(-1);
   const bestOf = k => b.filter(x => x[k] != null).reduce((m, x) => (m == null || x[k] < m[k]) ? x : m, null);
-  v.innerHTML = `<h1>Corps</h1><p class="sub">${b.length} mesures depuis ${b[0] ? fdate(b[0].date) : '—'}. Les zones hachurées sont les pauses d'entraînement.</p>
+  v.innerHTML = `${seg}<p class="sub">${b.length} mesures depuis ${b[0] ? fdate(b[0].date) : '—'}. Les zones hachurées sont les pauses d'entraînement.</p>
     <div class="kpis">${MEAS.map(m => { const l = lastOf(m.k), be = bestOf(m.k); return `<div class="kpi"><b>${l ? fmt(l[m.k]) : '–'}<small> ${m.unit}</small></b><span>${m.label}${l ? ` · ${l.date.slice(0, 7)}` : ''}${be && l && be[m.k] < l[m.k] ? `<br>min ${fmt(be[m.k])} (${be.date.slice(0, 4)})` : ''}</span></div>`; }).join('')}</div>
     <button class="btn primary block" id="b-add" style="margin-top:12px">${ICON.plus.replace('<svg', '<svg width="18" height="18" style="fill:none;stroke:currentColor;stroke-width:2.4"')} Nouvelle mesure</button>
     <div class="row" style="margin-top:16px"><span class="grow"></span><div class="range" id="b-range">${['1a', '5a', 'all'].map(r => `<button data-r="${r}" class="${ui.bodyRange === r ? 'on' : ''}">${{ '1a': '1 an', '5a': '5 ans', all: 'Tout' }[r]}</button>`).join('')}</div></div>
@@ -714,6 +827,7 @@ function renderBody(v) {
     <div class="card" style="padding:6px 10px"><table><thead><tr><th>Date</th>${MEAS.map(m => `<th class="r">${m.label.split(' ').pop()}</th>`).join('')}<th></th></tr></thead><tbody>
     ${b.slice().reverse().map(x => `<tr data-id="${x.id}"><td>${fdate(x.date)}</td>${MEAS.map(m => `<td class="r">${x[m.k] != null ? fmt(x[m.k]) : '<span class="muted">·</span>'}</td>`).join('')}<td class="r"><button class="mini-btn" data-edit style="width:28px;height:28px">${ICON.dots}</button></td></tr>`).join('')}
     </tbody></table></div>`;
+  bindSeg();
   $('#b-add', v).onclick = () => editBody(null);
   $$('#b-range button', v).forEach(bt => bt.onclick = () => { ui.bodyRange = bt.dataset.r; saveUi(); render(); });
   $$('tr[data-id] [data-edit]', v).forEach(bt => bt.onclick = () => editBody(S().body.find(x => x.id === bt.closest('tr').dataset.id)));

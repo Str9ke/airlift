@@ -75,6 +75,7 @@ export const CATEGORIES = ['Board-off', 'Mobilité', 'Abdos', 'Dos', 'Pecs', 'É
 
 // Proposés hors programme (anciens exercices), à activer d'un tap.
 export const EXTRA = [
+  { id: 'mollets-pointe', name: 'Montée sur la pointe des pieds', category: 'Jambes', equip: 'db2', type: 'load', days: ['dim'], sets: 2, repMin: 10, repMax: 15, cue: 'Avant du pied sur une marche, talons dans le vide · descends en étirement 1 s, monte le plus haut possible, tiens 1 s · charge = haltère par main (0 = sans charge)' },
   { id: 'chat-chameau', name: 'Chat-chameau (enroulement du bassin)', category: 'Mobilité', equip: 'bodyweight', type: 'reps', days: ['ven'], sets: 2, repMin: 10, repMax: 12, cue: 'À 4 pattes · enroule le bassin et arrondis le dos lentement, puis creuse · même geste qu\'en haut du tuck' },
   { id: 'etirement-pike-assis', name: 'Pike assis (étirement ischios)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 45, timeMax: 60, cue: 'Assis jambes tendues, bascule le bassin en avant, dos long · tension nette mais pas de douleur · respire' },
   { id: 'ischios-pnf', name: 'Ischios PNF couché (contracté-relâché)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 30, timeMax: 45, side: true, cue: 'Couché, jambe tendue vers le plafond tenue aux mains · pousse le talon contre les mains 6 s, relâche, gagne de l\'amplitude 20 s · 2 cycles · par jambe' },
