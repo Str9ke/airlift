@@ -8,7 +8,7 @@ import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 
-export const APP_VERSION = '1.10.0';
+export const APP_VERSION = '1.11.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -527,7 +527,7 @@ function startSession(day, ids = null, tpl = null) {
   const cur = loadDraft();
   if (cur) { setTab('log'); toast('Une séance est déjà en cours — termine-la ou supprime-la'); return; }
   const list = ids ? ids.map(getEx).filter(Boolean) : S().exercises.filter(e => e.active && (!day || e.days.includes(day))).sort((a, b) => a.order - b.order);
-  saveDraft({ id: uid(), date: today(), day, tpl: tpl || null, custom: !day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => ({ ex: e.id, sets: Array.from({ length: setsOn(e, day) }, () => ({})) })) });
+  saveDraft({ id: uid(), date: today(), day, tpl: tpl || null, custom: !day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => ({ ex: e.id, sets: Array.from({ length: (tpl && tplOf(tpl)?.sets?.[e.id]) || setsOn(e, day) }, () => ({})) })) });
   setTab('log');
 }
 
@@ -539,12 +539,12 @@ function renderLog(v) {
     v.innerHTML = `<h1>Séance</h1><p class="sub">Choisis la séance du jour : le chrono démarre aussitôt. Les charges proposées tiennent compte de ta dernière fois et des incréments réels de chaque matériel.</p>
       <div class="menu">${DAYS_().map(x => `<button data-start="${x.id}" class="${td?.id === x.id ? 'today' : ''}"><div class="row"><span class="grow">${esc(x.label)}${td?.id === x.id ? ' <span class="tag">aujourd\'hui</span>' : ''}</span><span class="muted">${S().exercises.filter(e => e.active && e.days.includes(x.id)).length} exos ›</span></div></button>`).join('')}
       <button data-custom><div class="row"><span class="grow">Nouvelle séance personnalisée<br><small class="muted">tes exercices actuels, les anciens ou un nouveau</small></span><span class="muted">›</span></div></button></div>
-      ${(S().templates || []).length ? `<h2>Mes séances custom</h2><div class="menu">${S().templates.map(t => `<div class="tpl-row"><button class="grow" data-tpl="${t.id}"><div class="row"><span class="grow"><b>${esc(t.name)}</b><br><small class="muted">${t.ex.length} exercices · ${esc(t.ex.map(id => getEx(id)?.name).filter(Boolean).slice(0, 4).join(', '))}${t.ex.length > 4 ? '…' : ''}${t.used ? ` · dernière ${fdate(t.used)}` : ''}</small></span><span class="muted">›</span></div></button><button class="mini-btn" data-tpl-menu="${t.id}" aria-label="Options">${ICON.dots}</button></div>`).join('')}</div>` : ''}
+      ${(S().templates || []).length ? `<h2>Mes séances custom</h2><div class="menu">${S().templates.map(t => `<div class="tpl-row"><button class="grow" data-tpl="${t.id}"><div class="row"><span class="grow"><b>${esc(t.name)}</b><br><small class="muted">${t.ex.length} exercices · ${esc(t.ex.map(id => getEx(id)?.name).filter(Boolean).slice(0, 4).join(', '))}${t.ex.length > 4 ? '…' : ''}${t.used ? ` · dernière ${fdate(t.used)}` : ''}</small></span><span class="muted">›</span></div></button><button class="tpl-go" data-tpl-go="${t.id}" aria-label="Commencer directement">▶</button></div>`).join('')}</div><p class="sub" style="margin-top:6px">Appuie sur une séance pour la configurer, ▶ pour la commencer tout de suite.</p>` : ''}
       ${last ? `<p class="sub" style="margin-top:16px">Dernière séance : ${fdate(last.date)} (il y a ${C.fmtDuration(daysBetween(last.date, today()))}).</p>` : ''}`;
     $$('[data-start]', v).forEach(b => b.onclick = () => startSession(b.dataset.start || null));
     $('[data-custom]', v).onclick = () => customSession();
-    $$('[data-tpl]', v).forEach(b => b.onclick = () => { const t = tplOf(b.dataset.tpl); startSession(null, t.ex.filter(id => getEx(id)), t.id); });
-    $$('[data-tpl-menu]', v).forEach(b => b.onclick = () => tplMenu(tplOf(b.dataset.tplMenu)));
+    $$('[data-tpl]', v).forEach(b => b.onclick = () => tplEdit(tplOf(b.dataset.tpl)));
+    $$('[data-tpl-go]', v).forEach(b => b.onclick = () => startTpl(tplOf(b.dataset.tplGo)));
     return;
   }
   if (!d.startedAt) d.startedAt = Date.now();
@@ -602,14 +602,56 @@ function sessionMenu(d, name) {
   $('#sm-del', sh).onclick = () => { sh.close(); deleteDraft(); };
 }
 
-function tplMenu(t) {
-  const sh = sheet(`<div class="sheet-head"><h2>${esc(t.name)}</h2><button class="icon-btn" data-close>${ICON.x}</button></div>
-    <div class="field"><label>Nom</label><input id="tm-name" value="${esc(t.name)}"></div>
-    <p class="sub">${t.ex.map(id => esc(getEx(id)?.name || '?')).join(' · ')}</p>
-    <div class="menu"><button id="tm-edit">Modifier les exercices et l'ordre</button><button id="tm-del"><span style="color:var(--bad)">Supprimer cette séance custom</span></button></div>`);
-  $('#tm-name', sh).onchange = ev => { t.name = ev.target.value.trim() || t.name; commit(); render(); };
-  $('#tm-edit', sh).onclick = () => { sh.close(); customSession(t); };
-  $('#tm-del', sh).onclick = async () => { sh.close(); if (await confirmBox(`Supprimer « ${t.name} » ? Les séances déjà faites restent dans l'historique.`, 'Supprimer', true)) { S().templates = S().templates.filter(x => x !== t); commit(); render(); } };
+const startTpl = t => startSession(null, t.ex.filter(id => getEx(id)), t.id);
+
+/** Configurer une séance custom : nom, exercices, ordre (glisser), séries ; puis enregistrer et/ou commencer. */
+function tplEdit(t) {
+  const w = { name: t.name, ex: t.ex.filter(id => getEx(id)), sets: { ...(t.sets || {}) } };
+  const setsOf = id => w.sets[id] || getEx(id).sets || 2;
+  const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-back aria-label="Retour">${ICON.back}</button><h2>Configurer la séance</h2></div>
+    <div class="field"><label>Nom</label><input id="te-name" value="${esc(t.name)}"></div>
+    <div class="sub" id="te-sum"></div>
+    <div id="te-list"></div>
+    <button class="btn block" id="te-add" style="margin:8px 0 4px">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Ajouter un exercice</button>
+    <button class="btn block" id="te-del" style="margin:8px 0 12px;color:var(--bad)">Supprimer cette séance custom</button>
+    <div class="grid2 sheet-foot"><button class="btn" id="te-save">Enregistrer</button><button class="btn primary" id="te-go">▶ Commencer</button></div>`, { full: true });
+  const orig = JSON.stringify(w);
+  const snap = () => JSON.stringify({ ...w, name: $('#te-name', sh).value.trim() || t.name });
+  const draw = () => {
+    const list = $('#te-list', sh);
+    list.innerHTML = w.ex.map(id => { const e = getEx(id); return `<div class="te-row" data-id="${id}"><span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>${illuHTML(e, 'thumb')}
+      <div class="lx-t"><h3>${esc(e.name)}</h3><div class="mus">${esc(MZ.musclesText(e))}</div></div>
+      <div class="te-sets"><button data-d="-1" aria-label="Moins de séries">−</button><b>${setsOf(id)}</b><button data-d="1" aria-label="Plus de séries">+</button></div>
+      <button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>`; }).join('') || '<div class="empty">Aucun exercice.</div>';
+    const n = w.ex.reduce((a, id) => a + setsOf(id), 0);
+    $('#te-sum', sh).textContent = `${w.ex.length} exercices · ${n} séries · glisse ⠿ pour changer l'ordre`;
+    $$('.te-row', list).forEach(r => {
+      const id = r.dataset.id;
+      $$('.te-sets button', r).forEach(bt => bt.onclick = () => { w.sets[id] = Math.max(1, Math.min(10, setsOf(id) + +bt.dataset.d)); draw(); });
+      $('[data-rm]', r).onclick = () => { w.ex = w.ex.filter(x => x !== id); draw(); };
+    });
+    list._sortable?.destroy();
+    if (window.Sortable && w.ex.length > 1) list._sortable = new Sortable(list, { handle: '.drag', animation: 150, forceFallback: true, fallbackTolerance: 3, ghostClass: 'drag-ghost', onEnd: ev => { if (ev.oldIndex === ev.newIndex) return; const [m] = w.ex.splice(ev.oldIndex, 1); w.ex.splice(ev.newIndex, 0, m); draw(); } });
+  };
+  draw();
+  const save = () => {
+    if (!w.ex.length) { toast('Ajoute au moins un exercice'); return false; }
+    t.name = $('#te-name', sh).value.trim() || t.name; t.ex = w.ex.slice();
+    t.sets = Object.fromEntries(w.ex.filter(id => w.sets[id] && w.sets[id] !== getEx(id).sets).map(id => [id, w.sets[id]]));
+    commit(); return true;
+  };
+  $('#te-add', sh).onclick = () => pickExercise(id => { w.ex.push(id); draw(); setTimeout(() => $$('.te-row', sh).at(-1)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50); }, w.ex);
+  $('#te-save', sh).onclick = () => { if (save()) { sh.close(); render(); toast(`« ${t.name} » enregistrée`); } };
+  $('#te-go', sh).onclick = () => { if (snap() !== orig && !save()) return; sh.close(); startTpl(t); };
+  $('#te-del', sh).onclick = async () => { if (await confirmBox(`Supprimer « ${t.name} » ? Les séances déjà faites restent dans l'historique.`, 'Supprimer', true)) { S().templates = S().templates.filter(x => x !== t); commit(); sh.close(); render(); } };
+  sh.guard = () => {
+    if (snap() === orig) return false;
+    const c = sheet(`<h2 style="margin-top:4px">Enregistrer les modifications ?</h2><div class="grid2" style="margin-top:16px"><button class="btn" data-drop>Ne pas enregistrer</button><button class="btn primary" data-keep>Enregistrer</button></div>`);
+    $('[data-drop]', c).onclick = () => { c.close(); sh.close(); };
+    $('[data-keep]', c).onclick = () => { c.close(); if (save()) { sh.close(); render(); toast(`« ${t.name} » enregistrée`); } };
+    return true;
+  };
+  $('[data-back]', sh).onclick = () => { if (!sh.guard()) sh.close(); };
 }
 
 /** Éditeur de séries — partagé entre la séance en cours (live) et l'édition d'historique. */

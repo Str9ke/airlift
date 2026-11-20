@@ -1,4 +1,4 @@
 {
- "version": "1.10.0",
- "notes": "Séance compacte (en-tête masqué, boutons dans la barre du chrono, cartes réduites), exercices terminés regroupés en haut et défilement vers le suivant, glisser-déposer des exercices pendant la séance, pavé numérique plus petit, séances custom mémorisées et rejouables"
+ "version": "1.11.0",
+ "notes": "Séances custom : un appui ouvre la configuration (nom, exercices, ordre par glisser-déposer, séries) avec Enregistrer / Commencer, bouton ▶ pour démarrer directement"
 }

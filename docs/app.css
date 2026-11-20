@@ -402,3 +402,16 @@ body.in-session .timer-bar b { font-size: 20px; }
 .tpl-row { display: flex; align-items: center; gap: 4px; }
 .tpl-row > button.grow { flex: 1; min-width: 0; }
 .menu .tpl-row .mini-btn { padding: 0; width: 38px; height: 46px; display: grid; place-items: center; background: var(--card); }
+
+/* ---------- séances custom : configuration */
+.tpl-go { width: 48px; align-self: stretch; border-radius: 12px; background: var(--grad); color: #04121c; font-size: 18px; font-weight: 800; flex: none; }
+.menu .tpl-row .tpl-go { padding: 0; text-align: center; background: var(--grad); }
+.te-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin-bottom: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.te-row .drag { width: 18px; height: 32px; display: grid; place-items: center; color: var(--muted); touch-action: none; cursor: grab; flex: none; }
+.te-row .drag svg { width: 14px; height: 14px; fill: currentColor; }
+.te-row .illu.thumb { width: 40px; height: 30px; border-radius: 7px; flex: none; }
+.te-row .lx-t h3 { font-size: 14px; }
+.te-sets { display: flex; align-items: center; gap: 4px; flex: none; }
+.te-sets button { width: 28px; height: 28px; border-radius: 8px; background: var(--card2); font-weight: 800; }
+.te-sets b { min-width: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.te-row .mini-btn { width: 28px; height: 28px; }
