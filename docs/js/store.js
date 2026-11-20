@@ -21,7 +21,7 @@ export function S() { return state; }
 
 function emptyState() {
   return {
-    version: 2, exercises: [], sessions: [], body: [], days: DEFAULT_DAYS.map(d => ({ ...d })), draft: null,
+    version: 2, exercises: [], sessions: [], body: [], templates: [], days: DEFAULT_DAYS.map(d => ({ ...d })), draft: null,
     settings: { density: 'compact', theme: 'auto', breakDays: 45, restSec: 120 },
     meta: { created: new Date().toISOString(), updatedAt: Date.now(), migrations: [] },
   };
@@ -122,6 +122,18 @@ MIGRATIONS.push({ id: '2026-11-19-mollets', run(st) {
 
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
+  { id: 'custom-memo-2026-11-20', run(st) {
+    // les séances personnalisées faites avant la 1.10 deviennent « Séance custom 1, 2… »
+    st.templates = Array.isArray(st.templates) ? st.templates : [];
+    for (const s of st.sessions) {
+      if (s.source !== 'app' || s.day || s.tpl || s.date < '2026-11-19') continue;
+      const ex = s.entries.map(e => e.ex);
+      const same = st.templates.find(t => t.ex.length === ex.length && t.ex.every(x => ex.includes(x)));
+      if (same) { s.tpl = same.id; continue; }
+      const t = { id: 'tpl' + Math.random().toString(36).slice(2, 9), name: `Séance custom ${st.templates.length + 1}`, ex, created: s.date, used: s.date };
+      st.templates.push(t); s.tpl = t.id;
+    }
+  } },
   { id: 'xlsx-2026-11-16', run(st) {
     const find = (date, ex) => { for (const s of st.sessions) if (s.date === date) { const en = s.entries.find(x => x.ex === ex); if (en) return { s, en }; } return null; };
     const move = (date, from, to) => { const f = find(date, from); if (!f) return; if (f.s.entries.some(x => x.ex === to)) f.s.entries.find(x => x.ex === to).sets.push(...f.en.sets); else f.s.entries.push({ ...f.en, ex: to }); f.s.entries = f.s.entries.filter(x => x !== f.en); };
@@ -147,6 +159,7 @@ function migrate(st) {
   for (const f of DATA_FIXES) if (!fx.has(f.id)) { f.run(st); fx.add(f.id); }
   st.meta.fixes = [...fx];
   if (st.draft === undefined) st.draft = null;
+  if (!Array.isArray(st.templates)) st.templates = [];
   return st;
 }
 

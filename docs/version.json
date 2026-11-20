@@ -1,4 +1,4 @@
 {
- "version": "1.9.0",
- "notes": "Séance personnalisée (exercices actuels, anciens ou nouveaux), exercice Montée sur la pointe des pieds, muscles et schéma pour chaque exercice, carte des muscles dans Corps : intensité de travail par jour et par semaine, force vs record par muscle, muscles oubliés"
+ "version": "1.10.0",
+ "notes": "Séance compacte (en-tête masqué, boutons dans la barre du chrono, cartes réduites), exercices terminés regroupés en haut et défilement vers le suivant, glisser-déposer des exercices pendant la séance, pavé numérique plus petit, séances custom mémorisées et rejouables"
 }

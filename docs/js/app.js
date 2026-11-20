@@ -8,7 +8,7 @@ import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 
-export const APP_VERSION = '1.9.0';
+export const APP_VERSION = '1.10.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -96,6 +96,7 @@ function render() {
   if (kp.open) kpClose();
   applyTheme();
   $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
+  document.body.classList.toggle('in-session', ui.tab === 'log' && !!S().draft);
   const v = $('#view');
   v.className = S().settings.density === 'compact' ? 'compact' : '';
   ({ prog: renderProg, log: renderLog, stats: renderStats, body: renderBody, hist: renderHist })[ui.tab](v);
@@ -521,11 +522,12 @@ async function deleteDraft() {
   saveDraft(null); render(); toast('Séance supprimée');
 }
 
-function startSession(day, ids = null) {
+const tplOf = id => (S().templates || []).find(t => t.id === id);
+function startSession(day, ids = null, tpl = null) {
   const cur = loadDraft();
   if (cur) { setTab('log'); toast('Une séance est déjà en cours — termine-la ou supprime-la'); return; }
   const list = ids ? ids.map(getEx).filter(Boolean) : S().exercises.filter(e => e.active && (!day || e.days.includes(day))).sort((a, b) => a.order - b.order);
-  saveDraft({ id: uid(), date: today(), day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => ({ ex: e.id, sets: Array.from({ length: setsOn(e, day) }, () => ({})) })) });
+  saveDraft({ id: uid(), date: today(), day, tpl: tpl || null, custom: !day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => ({ ex: e.id, sets: Array.from({ length: setsOn(e, day) }, () => ({})) })) });
   setTab('log');
 }
 
@@ -536,23 +538,29 @@ function renderLog(v) {
     const td = todayDay();
     v.innerHTML = `<h1>Séance</h1><p class="sub">Choisis la séance du jour : le chrono démarre aussitôt. Les charges proposées tiennent compte de ta dernière fois et des incréments réels de chaque matériel.</p>
       <div class="menu">${DAYS_().map(x => `<button data-start="${x.id}" class="${td?.id === x.id ? 'today' : ''}"><div class="row"><span class="grow">${esc(x.label)}${td?.id === x.id ? ' <span class="tag">aujourd\'hui</span>' : ''}</span><span class="muted">${S().exercises.filter(e => e.active && e.days.includes(x.id)).length} exos ›</span></div></button>`).join('')}
-      <button data-custom><div class="row"><span class="grow">Séance personnalisée<br><small class="muted">tes exercices actuels, les anciens ou un nouveau</small></span><span class="muted">›</span></div></button></div>
+      <button data-custom><div class="row"><span class="grow">Nouvelle séance personnalisée<br><small class="muted">tes exercices actuels, les anciens ou un nouveau</small></span><span class="muted">›</span></div></button></div>
+      ${(S().templates || []).length ? `<h2>Mes séances custom</h2><div class="menu">${S().templates.map(t => `<div class="tpl-row"><button class="grow" data-tpl="${t.id}"><div class="row"><span class="grow"><b>${esc(t.name)}</b><br><small class="muted">${t.ex.length} exercices · ${esc(t.ex.map(id => getEx(id)?.name).filter(Boolean).slice(0, 4).join(', '))}${t.ex.length > 4 ? '…' : ''}${t.used ? ` · dernière ${fdate(t.used)}` : ''}</small></span><span class="muted">›</span></div></button><button class="mini-btn" data-tpl-menu="${t.id}" aria-label="Options">${ICON.dots}</button></div>`).join('')}</div>` : ''}
       ${last ? `<p class="sub" style="margin-top:16px">Dernière séance : ${fdate(last.date)} (il y a ${C.fmtDuration(daysBetween(last.date, today()))}).</p>` : ''}`;
     $$('[data-start]', v).forEach(b => b.onclick = () => startSession(b.dataset.start || null));
     $('[data-custom]', v).onclick = () => customSession();
+    $$('[data-tpl]', v).forEach(b => b.onclick = () => { const t = tplOf(b.dataset.tpl); startSession(null, t.ex.filter(id => getEx(id)), t.id); });
+    $$('[data-tpl-menu]', v).forEach(b => b.onclick = () => tplMenu(tplOf(b.dataset.tplMenu)));
     return;
   }
   if (!d.startedAt) d.startedAt = Date.now();
-  v.innerHTML = `<div class="row" style="margin-top:6px"><h1 class="grow" style="margin:0">${d.day ? esc(dayOf(d.day)?.label || 'Séance') : 'Séance personnalisée'}</h1></div>
-    <div class="timer-bar">
-      <div class="tb-main"><span class="tb-l">Durée</span><b data-clock="${d.startedAt}">${clock(d.startedAt)}</b><span class="tb-s">depuis ${hhmm(d.startedAt)}</span></div>
+  // exercices déjà terminés (avant cette version) : on garde leur ordre
+  d.entries.forEach((en, i) => { if (!en.doneAt && en.sets.length && en.sets.every(x => x.done)) en.doneAt = 1 + i; });
+  const name = d.day ? (dayOf(d.day)?.short || 'Séance') : (tplOf(d.tpl)?.name || 'Custom');
+  v.innerHTML = `<div class="timer-bar">
+      <div class="tb-main"><span class="tb-l">${esc(name)} · durée</span><b data-clock="${d.startedAt}">${clock(d.startedAt)}</b></div>
       <div class="tb-rest"><span class="tb-l">Repos</span><b data-rest="${d.lastSetAt || ''}" data-goal="${d.restGoal || ''}">${d.lastSetAt ? clock(d.lastSetAt) : '–'}</b><span class="tb-s">${esc(d.restLabel || 'objectif ' + clock(1, 1 + (S().settings.restSec || 120) * 1000))}</span></div>
-      <button class="btn sm" id="l-restart" title="Remettre le chrono à zéro">Je commence maintenant</button>
+      <span class="grow"></span>
+      <button class="icon-btn tb-menu" id="l-menu" aria-label="Options de la séance">${ICON.dots}</button>
+      <button class="btn sm primary" id="l-finish">Terminer</button>
     </div>
-    <div class="row" style="margin:8px 0 12px"><input type="date" id="l-date" value="${d.date}" style="max-width:170px"><span class="grow"></span><button class="btn sm" id="l-add">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Exercice</button></div>
     <div id="l-editor"></div>
-    <div class="field"><label>Notes de séance</label><textarea id="l-note" rows="2" placeholder="Sensations, douleurs, conditions…">${esc(d.note)}</textarea></div>
-    <div class="grid2 sticky-bottom"><button class="btn danger" id="l-cancel">Supprimer la séance</button><button class="btn primary" id="l-finish">Terminer · <span data-clock="${d.startedAt}">${clock(d.startedAt)}</span></button></div>`;
+    <button class="btn sm" id="l-add" style="margin:2px 0 10px">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Exercice</button>
+    <div class="field"><label>Notes de séance</label><textarea id="l-note" rows="2" placeholder="Sensations, douleurs, conditions…">${esc(d.note)}</textarea></div>`;
   const ed = $('#l-editor', v);
   const onSet = (e, nextEn) => {
     d.lastSetAt = Date.now();
@@ -562,44 +570,88 @@ function renderLog(v) {
     saveDraft(d);
     const r = $('[data-rest]', v); if (r) { r.dataset.rest = d.lastSetAt; r.dataset.goal = d.restGoal; r.textContent = '0:00'; r.parentElement.classList.remove('over'); $('.tb-s', r.parentElement).textContent = d.restLabel; }
   };
-  sessionEditor(ed, d, () => saveDraft(d), { suggest: true, onSet });
-  $('#l-restart', v).onclick = () => { d.startedAt = Date.now(); saveDraft(d); render(); toast('Chrono remis à zéro'); };
-  $('#l-date', v).onchange = ev => { d.date = ev.target.value; saveDraft(d); };
+  // exercice terminé : il remonte avec les exercices faits (ordre chronologique), l'écran va au suivant
+  const onDone = () => setTimeout(() => {
+    if (loadDraft() !== d || !ed.isConnected) return;
+    const dn = d.entries.filter(x => x.doneAt).sort((x, y) => x.doneAt - y.doneAt);
+    d.entries = [...dn, ...d.entries.filter(x => !x.doneAt)];
+    saveDraft(d);
+    const wasKp = kp.open;
+    draw();
+    const next = $$('.log-ex', ed).find(c => !d.entries[+c.dataset.ei]?.doneAt);
+    if (next) { next.scrollIntoView({ block: 'start', behavior: 'smooth' }); const i = $('.set-row input', next); if (wasKp && i) kpOpen(i, false); }
+    else { if (wasKp) kpClose(); $('#l-add', v).scrollIntoView({ block: 'center', behavior: 'smooth' }); toast('Tous les exercices sont faits 💪'); }
+  }, 450);
+  const draw = () => sessionEditor(ed, d, () => saveDraft(d), { suggest: true, onSet, live: true, onDone });
+  draw();
+  $('#l-menu', v).onclick = () => sessionMenu(d, name);
   $('#l-note', v).oninput = ev => { d.note = ev.target.value; saveDraft(d); };
-  $('#l-add', v).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push({ ex: id, sets: Array.from({ length: e.sets || 3 }, () => ({})) }); saveDraft(d); render(); }, d.entries.map(en => en.ex));
-  $('#l-cancel', v).onclick = () => deleteDraft();
+  $('#l-add', v).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push({ ex: id, sets: Array.from({ length: e.sets || 3 }, () => ({})) }); saveDraft(d); render(); setTimeout(() => $$('.log-ex').at(-1)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60); }, d.entries.map(en => en.ex));
   $('#l-finish', v).onclick = () => finishSession(d);
 }
 
-/** Éditeur de séries — partagé entre la séance en cours et l'édition d'historique. */
+function sessionMenu(d, name) {
+  const sh = sheet(`<div class="sheet-head"><h2>${esc(name)}</h2><button class="icon-btn" data-close>${ICON.x}</button></div>
+    <div class="field"><label>Date de la séance</label><input type="date" id="sm-date" value="${d.date}"></div>
+    <div class="menu">
+      <button id="sm-restart"><div class="row"><span class="grow">Je commence maintenant<br><small class="muted">remet le chrono à zéro · commencé à ${hhmm(d.startedAt)}</small></span></div></button>
+      <button id="sm-del"><div class="row"><span class="grow" style="color:var(--bad)">Supprimer la séance<br><small class="muted">rien ne sera enregistré</small></span></div></button>
+    </div>`);
+  $('#sm-date', sh).onchange = ev => { d.date = ev.target.value || d.date; saveDraft(d); };
+  $('#sm-restart', sh).onclick = () => { d.startedAt = Date.now(); saveDraft(d); sh.close(); render(); toast('Chrono remis à zéro'); };
+  $('#sm-del', sh).onclick = () => { sh.close(); deleteDraft(); };
+}
+
+function tplMenu(t) {
+  const sh = sheet(`<div class="sheet-head"><h2>${esc(t.name)}</h2><button class="icon-btn" data-close>${ICON.x}</button></div>
+    <div class="field"><label>Nom</label><input id="tm-name" value="${esc(t.name)}"></div>
+    <p class="sub">${t.ex.map(id => esc(getEx(id)?.name || '?')).join(' · ')}</p>
+    <div class="menu"><button id="tm-edit">Modifier les exercices et l'ordre</button><button id="tm-del"><span style="color:var(--bad)">Supprimer cette séance custom</span></button></div>`);
+  $('#tm-name', sh).onchange = ev => { t.name = ev.target.value.trim() || t.name; commit(); render(); };
+  $('#tm-edit', sh).onclick = () => { sh.close(); customSession(t); };
+  $('#tm-del', sh).onclick = async () => { sh.close(); if (await confirmBox(`Supprimer « ${t.name} » ? Les séances déjà faites restent dans l'historique.`, 'Supprimer', true)) { S().templates = S().templates.filter(x => x !== t); commit(); render(); } };
+}
+
+/** Éditeur de séries — partagé entre la séance en cours (live) et l'édition d'historique. */
+const openDone = new Set(); // exercices terminés que tu as rouverts
 function sessionEditor(host, d, onChange, opts = {}) {
-  const { suggest = false, onSet = null, reorder = false } = opts;
+  const { suggest = false, onSet = null, reorder = false, live = false, onDone = null } = opts;
   const redraw = () => sessionEditor(host, d, onChange, opts);
   host.innerHTML = d.entries.map((en, ei) => {
     const e = getEx(en.ex); if (!e) return '';
     const st = C.exStats(e.id);
     const sg = suggest ? C.suggest(e, d.day) : { sets: [] };
     const time = e.type === 'time', repsOnly = e.type === 'reps', k2 = e.type === 'load_time' ? 't' : 'r';
-    const prev = st.arr.filter(h => h.session.id !== d.id).slice(-3);
+    const prev = st.arr.filter(h => h.session.id !== d.id);
+    const last = prev.at(-1);
     const done = en.sets.length && en.sets.every(s => s.done);
-    return `<div class="log-ex ${done ? 'done' : ''}" data-ei="${ei}">
-      <div class="row" style="gap:10px"><button class="illu-btn" data-illu aria-label="Voir l'exercice">${illuHTML(e, 'thumb')}</button><h3 class="grow">${esc(e.name)}</h3>${reorder && ei > 0 ? `<button class="mini-btn" data-up aria-label="Monter">↑</button>` : ''}<span style="margin-right:4px">${sparkline(prev.map(h => h.perf), { w: 54, h: 20 })}</span><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>
-      ${MZ.musclesText(e) ? `<div class="mus">${esc(MZ.musclesText(e))}</div>` : ''}
-      ${e.cue ? `<div class="cue">${esc(e.cue)}</div>` : ''}
-      ${e.superset && d.entries[ei + 1] && getEx(d.entries[ei + 1].ex) ? `<div class="cue ss">⇄ Superset : enchaîne sans repos avec « ${esc(getEx(d.entries[ei + 1].ex).name)} », puis récupère.</div>` : ''}
-      ${prev.length ? `<div class="prev">${prev.map(h => `${fdate(h.date).replace(/ \d{4}$/, '')} : ${esc(C.fmtEntry(e, h.entry))}`).join('<br>')}</div>` : '<div class="prev">Première fois — note ta charge de départ.</div>'}
-      ${sg.note ? `<div class="sugg">${sg.manual ? '✎ ' : '▲ '}${esc(sg.note)}</div>` : ''}
+    const folded = live && done && !openDone.has(en.ex);
+    const nx = e.superset && d.entries[ei + 1] ? getEx(d.entries[ei + 1].ex) : null;
+    const head = `<div class="lx-head">${live || reorder ? `<span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>` : ''}<button class="illu-btn" data-illu aria-label="Voir l'exercice et la consigne">${illuHTML(e, 'thumb')}</button>
+      <div class="lx-t" data-fold><h3>${esc(e.name)}${nx ? ' <span class="tag ss">⇄</span>' : ''}</h3>${MZ.musclesText(e) ? `<div class="mus">${esc(MZ.musclesText(e))}</div>` : ''}</div>
+      <span class="lx-sp">${sparkline(prev.slice(-3).map(h => h.perf), { w: 44, h: 18 })}</span><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>`;
+    if (folded) return `<div class="log-ex done folded" data-ei="${ei}">${head}<div class="lx-sum">✓ ${esc(C.fmtEntry(e, { sets: en.sets }))}</div></div>`;
+    const info = [last ? `Dernière ${fdate(last.date).replace(/ \d{4}$/, '')} : ${C.fmtEntry(e, last.entry)}` : 'Première fois : note ta charge de départ', sg.note ? `${sg.manual ? '✎' : '▲'} ${sg.note}` : ''].filter(Boolean).join(' · ');
+    return `<div class="log-ex ${done ? 'done' : ''}" data-ei="${ei}">${head}
+      ${nx ? `<div class="lx-ss">⇄ enchaîne sans repos avec « ${esc(nx.name)} »</div>` : ''}
+      <div class="lx-info" data-info>${esc(info)}</div>
       <div class="col-h ${time || repsOnly ? 'time' : ''}"><span>#</span>${time ? '<span>secondes</span>' : repsOnly ? '<span>reps</span>' : `<span>${unitW(e)}${e.side ? ' · par côté' : ''}</span><span>${k2 === 't' ? 'secondes' : 'reps'}</span>`}<span>✓</span></div>
       ${en.sets.map((s, si) => { const p = sg.sets[si] || sg.sets.at(-1) || {}; return `<div class="set-row ${time || repsOnly ? 'time' : ''}" data-si="${si}"><span class="n">${si + 1}</span>
         ${time ? `<input data-k="t" type="number" inputmode="numeric" value="${s.t ?? ''}" placeholder="${p.t ?? e.timeMin}">`
         : repsOnly ? `<input data-k="r" type="number" inputmode="numeric" value="${s.r ?? ''}" placeholder="${p.r ?? e.repMin}">`
         : `<input data-k="w" type="number" inputmode="decimal" step="0.25" value="${s.w ?? ''}" placeholder="${p.w ?? ''}"><input data-k="${k2}" type="number" inputmode="numeric" value="${s[k2] ?? ''}" placeholder="${p[k2] ?? (k2 === 't' ? e.timeMin : e.repMin)}">`}
         <button class="chk ${s.done ? 'on' : ''}" data-chk aria-label="Série faite">${ICON.check}</button></div>`; }).join('')}
-      <div class="row"><button class="btn sm" data-addset>+ Série</button>${en.sets.length > 1 ? '<button class="btn sm" data-delset>− Série</button>' : ''}<span class="grow"></span><button class="btn sm" data-plan>Prochaine fois…</button></div>
+      <div class="lx-foot"><button class="lnk" data-addset>+ série</button>${en.sets.length > 1 ? '<button class="lnk" data-delset>− série</button>' : ''}<span class="grow"></span><button class="lnk" data-plan>prochaine fois…</button></div>
     </div>`;
   }).join('') || '<div class="empty">Aucun exercice. Ajoute-en un.</div>';
   $$('.log-ex', host).forEach(card => {
     const en = d.entries[+card.dataset.ei];
+    const fold = $('[data-fold]', card);
+    if (live) fold.onclick = () => { if (!en.sets.every(x => x.done)) return; if (openDone.has(en.ex)) openDone.delete(en.ex); else openDone.add(en.ex); redraw(); };
+    $('[data-illu]', card).onclick = () => showIllustration(getEx(en.ex));
+    $('[data-rm]', card).onclick = () => { d.entries.splice(+card.dataset.ei, 1); onChange(); redraw(); };
+    if (card.classList.contains('folded')) return;
+    const inf = $('[data-info]', card); inf.onclick = () => inf.classList.toggle('full');
     $$('.set-row', card).forEach(row => {
       const s = en.sets[+row.dataset.si];
       $$('input', row).forEach(inp => inp.oninput = () => { if (inp.value === '') delete s[inp.dataset.k]; else s[inp.dataset.k] = +inp.value; onChange(); });
@@ -607,20 +659,28 @@ function sessionEditor(host, d, onChange, opts = {}) {
         s.done = !s.done;
         if (s.done) $$('input', row).forEach(inp => { if (inp.value === '' && inp.placeholder !== '') { inp.value = inp.placeholder; s[inp.dataset.k] = +inp.placeholder; } });
         ev.currentTarget.classList.toggle('on', s.done);
-        card.classList.toggle('done', en.sets.every(x => x.done));
+        const all = en.sets.every(x => x.done), was = !!en.doneAt;
+        card.classList.toggle('done', all);
+        if (live) { if (all && !en.doneAt) en.doneAt = Date.now(); if (!all) delete en.doneAt; }
         if (s.done && navigator.vibrate) navigator.vibrate(15);
         if (s.done && onSet) onSet(getEx(en.ex), d.entries[+card.dataset.ei + 1]);
         if (s.done && suggest) celebrateSet(getEx(en.ex), s, d, card);
         onChange();
+        if (live && all && !was) { openDone.delete(en.ex); onDone && onDone(en); }
       };
     });
-    $('[data-addset]', card).onclick = () => { en.sets.push({}); onChange(); redraw(); };
+    $('[data-addset]', card).onclick = () => { en.sets.push({}); delete en.doneAt; onChange(); redraw(); };
     const ds = $('[data-delset]', card); if (ds) ds.onclick = () => { en.sets.pop(); onChange(); redraw(); };
-    $('[data-rm]', card).onclick = () => { d.entries.splice(+card.dataset.ei, 1); onChange(); redraw(); };
-    const up = $('[data-up]', card); if (up) up.onclick = () => { const i = +card.dataset.ei; [d.entries[i - 1], d.entries[i]] = [d.entries[i], d.entries[i - 1]]; onChange(); redraw(); };
     $('[data-plan]', card).onclick = () => editPlan(getEx(en.ex));
-    $('[data-illu]', card).onclick = () => showIllustration(getEx(en.ex));
   });
+  // glisser-déposer (poignée ⠿) pour changer l'ordre des exercices
+  host._sortable?.destroy(); host._sortable = null;
+  if ((live || reorder) && window.Sortable && d.entries.length > 1) {
+    host._sortable = new Sortable(host, { handle: '.drag', animation: 150, delay: 0, forceFallback: true, fallbackTolerance: 3, scroll: true, bubbleScroll: true, ghostClass: 'drag-ghost', onEnd: ev => {
+      if (ev.oldIndex === ev.newIndex) return;
+      const [m] = d.entries.splice(ev.oldIndex, 1); d.entries.splice(ev.newIndex, 0, m); onChange(); redraw();
+    } });
+  }
 }
 
 function pickExercise(cb, exclude = []) {
@@ -645,11 +705,11 @@ function pickExercise(cb, exclude = []) {
 }
 
 // ---------------------------------------------------------------- séance personnalisée
-function customSession() {
-  const sel = [];
+function customSession(tpl = null) {
+  const sel = tpl ? tpl.ex.filter(id => getEx(id)) : [];
   const inProg = S().exercises.filter(e => e.active).sort((a, b) => a.order - b.order);
   const outProg = () => S().exercises.filter(e => !e.active).map(e => ({ e, st: C.exStats(e.id) })).sort((a, b) => (b.st.last?.date || '').localeCompare(a.st.last?.date || ''));
-  const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-close>${ICON.back}</button><h2>Séance personnalisée</h2></div>
+  const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-close>${ICON.back}</button><h2>${tpl ? esc(tpl.name) : 'Séance personnalisée'}</h2></div>
     <p class="sub">Coche les exercices dans l'ordre où tu veux les faire : programme actuel, anciens exercices, ou un nouveau.</p>
     <input id="cs-q" placeholder="Rechercher un exercice ou un muscle…" style="margin-bottom:8px">
     <button class="btn block" id="cs-new" style="margin-bottom:6px">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Créer un nouvel exercice</button>
@@ -658,7 +718,7 @@ function customSession() {
     <div class="sheet-foot"><button class="btn primary block" id="cs-go"></button></div>`, { full: true });
   const item = (e, extra) => { const i = sel.indexOf(e.id); return `<button class="pick-row ${i >= 0 ? 'sel' : ''}" data-id="${e.id}">${illuHTML(e, 'thumb')}<span class="grow"><b>${esc(e.name)}</b><small>${extra}</small></span><span class="pick-n">${i >= 0 ? i + 1 : ''}</span></button>`; };
   const foot = () => {
-    const b = $('#cs-go', sh); b.textContent = sel.length ? `Démarrer · ${sel.length} exercice${sel.length > 1 ? 's' : ''}` : 'Choisis au moins un exercice'; b.disabled = !sel.length;
+    const b = $('#cs-go', sh); b.textContent = sel.length ? `${tpl ? 'Enregistrer' : 'Démarrer'} · ${sel.length} exercice${sel.length > 1 ? 's' : ''}` : 'Choisis au moins un exercice'; b.disabled = !sel.length;
     const ms = new Set(sel.flatMap(id => MZ.muscleOf(getEx(id)).p));
     $('#cs-mz', sh).innerHTML = sel.length ? `<div class="card mz-mini">${MZ.bodySVG(id => ms.has(id) ? { c: 'var(--mz-p)' } : sel.some(x => MZ.muscleOf(getEx(x)).s.includes(id)) ? { c: 'var(--mz-s)' } : { c: 'var(--mz-0)' }, { small: true })}<div class="sub" style="margin:4px 0 0">Muscles travaillés : ${esc([...ms].map(id => MZ.MUSCLE[id].short).join(', '))}</div></div>` : '';
   };
@@ -673,7 +733,10 @@ function customSession() {
   };
   $('#cs-q', sh).oninput = draw; draw();
   $('#cs-new', sh).onclick = () => editExercise(null, { free: true, onSaved: t => { sel.push(t.id); draw(); } });
-  $('#cs-go', sh).onclick = () => { if (!sel.length) return; sh.close(); startSession(null, sel); };
+  $('#cs-go', sh).onclick = () => {
+    if (!sel.length) return; sh.close();
+    if (tpl) { tpl.ex = sel.slice(); commit(); render(); toast(`« ${tpl.name} » enregistrée`); } else startSession(null, sel);
+  };
 }
 
 function cleanEntries(d) {
@@ -687,6 +750,14 @@ function finishSession(d) {
   const end = Date.now();
   const sess = { id: d.id, date: d.date, note: d.note, source: 'app', entries };
   if (d.day) sess.day = d.day;
+  let tplMsg = '';
+  if (!d.day) {
+    S().templates = S().templates || [];
+    const ex = d.entries.map(en => en.ex);
+    let t = tplOf(d.tpl) || S().templates.find(x => x.ex.length === ex.length && x.ex.every(id => ex.includes(id)));
+    if (!t) { t = { id: 'tpl' + uid(), name: `Séance custom ${S().templates.length + 1}`, ex, created: d.date }; S().templates.push(t); tplMsg = `Mémorisée : « ${t.name} » (onglet Séance)`; }
+    t.used = d.date; sess.tpl = t.id;
+  }
   if (d.startedAt) Object.assign(sess, { start: hhmm(d.startedAt), end: hhmm(end), dur: Math.max(1, Math.round((end - d.startedAt) / 60000)) });
   S().sessions.push(sess);
   entries.forEach(en => { const e = getEx(en.ex); if (e && e.plan?.manual) e.plan = null; });
@@ -700,6 +771,7 @@ function finishSession(d) {
   const sh = sheet(`<div style="text-align:center;padding:10px 0">
       <div class="muted" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:12px">Séance enregistrée</div>
       <div class="summary-pts">${sc && sc.pts >= 0 ? '+' : ''}${sc ? sc.pts : 0} pts</div>
+      ${tplMsg ? `<div class="sub" style="margin:4px 0">💾 ${esc(tplMsg)}</div>` : ''}
       ${sess.dur ? `<div class="summary-time">⏱ ${fmtMin(sess.dur)} <span class="muted">(${sess.start} → ${sess.end})</span></div>` : ''}
       <div class="sub">Total : ${fmt((sc?.cum ?? before), 0)} pts · ${entries.length} exercices · facteur volume ×${fmt(sc?.vol ?? 1, 2)}</div>
 
@@ -1207,7 +1279,7 @@ function kpLabel(inp) {
   if (row) return `Série ${+row.dataset.i + 1} · ${unit}`;
   return unit;
 }
-function kpOpen(inp) {
+function kpOpen(inp, scroll = true) {
   if (!kp.el) kpBuild();
   if (kp.inp && kp.inp !== inp) { kpCommit(); kp.inp.classList.remove('kp-on'); }
   kp.inp = inp; kp.buf = inp.value; kp.fresh = true; kp.open = true;
@@ -1216,7 +1288,7 @@ function kpOpen(inp) {
   $('[data-v=ok]', kp.el).style.visibility = inp.closest('.set-row')?.querySelector('[data-chk]') ? '' : 'hidden';
   kpShow();
   kp.el.classList.add('on'); document.body.classList.add('kp-open');
-  setTimeout(() => inp.scrollIntoView({ block: 'center', behavior: 'smooth' }), 30);
+  if (scroll) setTimeout(() => inp.scrollIntoView({ block: 'center', behavior: 'smooth' }), 30);
 }
 function kpShow() { const v = kp.buf.replace('.', ','); $('.kp-val', kp.el).textContent = v || (kp.inp?.placeholder ? kp.inp.placeholder.replace('.', ',') : '–'); $('.kp-val', kp.el).classList.toggle('ph', !v); }
 function kpClose() {
@@ -1256,6 +1328,7 @@ function kpKey(v) {
   else if (v === 'ok') {
     const row = kp.inp.closest('.set-row'); const chk = row?.querySelector('[data-chk]');
     if (chk && !chk.classList.contains('on')) chk.click();
+    if (!row.isConnected) return;
     // passe au premier champ de la série suivante (ou de l'exercice suivant)
     const list = kpInputs(); const after = list.filter(i => row.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING && !row.contains(i));
     if (after[0]) kpOpen(after[0]); else kpClose();
