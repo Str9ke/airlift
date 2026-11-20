@@ -8,7 +8,7 @@ import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 
-export const APP_VERSION = '1.11.0';
+export const APP_VERSION = '1.11.1';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -527,7 +527,7 @@ function startSession(day, ids = null, tpl = null) {
   const cur = loadDraft();
   if (cur) { setTab('log'); toast('Une séance est déjà en cours — termine-la ou supprime-la'); return; }
   const list = ids ? ids.map(getEx).filter(Boolean) : S().exercises.filter(e => e.active && (!day || e.days.includes(day))).sort((a, b) => a.order - b.order);
-  saveDraft({ id: uid(), date: today(), day, tpl: tpl || null, custom: !day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => ({ ex: e.id, sets: Array.from({ length: (tpl && tplOf(tpl)?.sets?.[e.id]) || setsOn(e, day) }, () => ({})) })) });
+  saveDraft({ id: uid(), date: today(), day, tpl: tpl || null, custom: !day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => { const tg = tpl && tplOf(tpl)?.targets?.[e.id]; return { ex: e.id, ...(tg ? { target: { ...tg } } : {}), sets: Array.from({ length: (tpl && tplOf(tpl)?.sets?.[e.id]) || setsOn(e, day) }, () => ({})) }; }) });
   setTab('log');
 }
 
@@ -606,7 +606,7 @@ const startTpl = t => startSession(null, t.ex.filter(id => getEx(id)), t.id);
 
 /** Configurer une séance custom : nom, exercices, ordre (glisser), séries ; puis enregistrer et/ou commencer. */
 function tplEdit(t) {
-  const w = { name: t.name, ex: t.ex.filter(id => getEx(id)), sets: { ...(t.sets || {}) } };
+  const w = { name: t.name, ex: t.ex.filter(id => getEx(id)), sets: { ...(t.sets || {}) }, targets: JSON.parse(JSON.stringify(t.targets || {})) };
   const setsOf = id => w.sets[id] || getEx(id).sets || 2;
   const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-back aria-label="Retour">${ICON.back}</button><h2>Configurer la séance</h2></div>
     <div class="field"><label>Nom</label><input id="te-name" value="${esc(t.name)}"></div>
@@ -619,16 +619,24 @@ function tplEdit(t) {
   const snap = () => JSON.stringify({ ...w, name: $('#te-name', sh).value.trim() || t.name });
   const draw = () => {
     const list = $('#te-list', sh);
-    list.innerHTML = w.ex.map(id => { const e = getEx(id); return `<div class="te-row" data-id="${id}"><span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>${illuHTML(e, 'thumb')}
-      <div class="lx-t"><h3>${esc(e.name)}</h3><div class="mus">${esc(MZ.musclesText(e))}</div></div>
-      <div class="te-sets"><button data-d="-1" aria-label="Moins de séries">−</button><b>${setsOf(id)}</b><button data-d="1" aria-label="Plus de séries">+</button></div>
-      <button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>`; }).join('') || '<div class="empty">Aucun exercice.</div>';
+    list.innerHTML = w.ex.map(id => {
+      const e = getEx(id), tg = w.targets[id] || {}, auto = C.suggest(e).sets[0] || {};
+      const keys = e.type === 'time' ? ['t'] : e.type === 'reps' ? ['r'] : e.type === 'load_time' ? ['w', 't'] : ['w', 'r'];
+      const lbl = { w: e.type === 'bw_load' ? 'lest' : e.type === 'assisted' ? 'assist.' : 'kg', r: 'reps', t: 'sec' };
+      const fld = k => `<label class="te-f"><input type="number" inputmode="${k === 'w' ? 'decimal' : 'numeric'}" step="${k === 'w' ? '0.25' : '1'}" data-k="${k}" data-lbl="${esc(e.name)} · objectif ${k === 'w' ? unitW(e) : k === 't' ? 'secondes' : 'reps'}" value="${tg[k] ?? ''}" placeholder="${auto[k] ?? ''}"><span>${lbl[k]}</span></label>`;
+      return `<div class="te-row" data-id="${id}">
+      <div class="te-l1"><span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>${illuHTML(e, 'thumb')}
+        <div class="lx-t"><h3>${esc(e.name)}</h3><div class="mus">${esc(MZ.musclesText(e))}</div></div>
+        <button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>
+      <div class="te-l2"><div class="te-sets"><button data-d="-1" aria-label="Moins de séries">−</button><b>${setsOf(id)}</b><button data-d="1" aria-label="Plus de séries">+</button><span>séries</span></div>
+        ${keys.map(fld).join('<span class="te-x">×</span>')}</div></div>`; }).join('') || '<div class="empty">Aucun exercice.</div>';
     const n = w.ex.reduce((a, id) => a + setsOf(id), 0);
-    $('#te-sum', sh).textContent = `${w.ex.length} exercices · ${n} séries · glisse ⠿ pour changer l'ordre`;
+    $('#te-sum', sh).textContent = `${w.ex.length} exercices · ${n} séries · glisse ⠿ pour changer l'ordre · charge et reps vides = proposition automatique (en gris)`;
     $$('.te-row', list).forEach(r => {
       const id = r.dataset.id;
       $$('.te-sets button', r).forEach(bt => bt.onclick = () => { w.sets[id] = Math.max(1, Math.min(10, setsOf(id) + +bt.dataset.d)); draw(); });
       $('[data-rm]', r).onclick = () => { w.ex = w.ex.filter(x => x !== id); draw(); };
+      $$('.te-f input', r).forEach(inp => inp.oninput = () => { const o = w.targets[id] || (w.targets[id] = {}); if (inp.value === '') delete o[inp.dataset.k]; else o[inp.dataset.k] = +inp.value; if (!Object.keys(o).length) delete w.targets[id]; });
     });
     list._sortable?.destroy();
     if (window.Sortable && w.ex.length > 1) list._sortable = new Sortable(list, { handle: '.drag', animation: 150, forceFallback: true, fallbackTolerance: 3, ghostClass: 'drag-ghost', onEnd: ev => { if (ev.oldIndex === ev.newIndex) return; const [m] = w.ex.splice(ev.oldIndex, 1); w.ex.splice(ev.newIndex, 0, m); draw(); } });
@@ -638,6 +646,7 @@ function tplEdit(t) {
     if (!w.ex.length) { toast('Ajoute au moins un exercice'); return false; }
     t.name = $('#te-name', sh).value.trim() || t.name; t.ex = w.ex.slice();
     t.sets = Object.fromEntries(w.ex.filter(id => w.sets[id] && w.sets[id] !== getEx(id).sets).map(id => [id, w.sets[id]]));
+    t.targets = Object.fromEntries(w.ex.filter(id => w.targets[id] && Object.keys(w.targets[id]).length).map(id => [id, w.targets[id]]));
     commit(); return true;
   };
   $('#te-add', sh).onclick = () => pickExercise(id => { w.ex.push(id); draw(); setTimeout(() => $$('.te-row', sh).at(-1)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50); }, w.ex);
@@ -678,7 +687,7 @@ function sessionEditor(host, d, onChange, opts = {}) {
       ${nx ? `<div class="lx-ss">⇄ enchaîne sans repos avec « ${esc(nx.name)} »</div>` : ''}
       <div class="lx-info" data-info>${esc(info)}</div>
       <div class="col-h ${time || repsOnly ? 'time' : ''}"><span>#</span>${time ? '<span>secondes</span>' : repsOnly ? '<span>reps</span>' : `<span>${unitW(e)}${e.side ? ' · par côté' : ''}</span><span>${k2 === 't' ? 'secondes' : 'reps'}</span>`}<span>✓</span></div>
-      ${en.sets.map((s, si) => { const p = sg.sets[si] || sg.sets.at(-1) || {}; return `<div class="set-row ${time || repsOnly ? 'time' : ''}" data-si="${si}"><span class="n">${si + 1}</span>
+      ${en.sets.map((s, si) => { const p = { ...(sg.sets[si] || sg.sets.at(-1) || {}), ...(en.target || {}) }; return `<div class="set-row ${time || repsOnly ? 'time' : ''}" data-si="${si}"><span class="n">${si + 1}</span>
         ${time ? `<input data-k="t" type="number" inputmode="numeric" value="${s.t ?? ''}" placeholder="${p.t ?? e.timeMin}">`
         : repsOnly ? `<input data-k="r" type="number" inputmode="numeric" value="${s.r ?? ''}" placeholder="${p.r ?? e.repMin}">`
         : `<input data-k="w" type="number" inputmode="decimal" step="0.25" value="${s.w ?? ''}" placeholder="${p.w ?? ''}"><input data-k="${k2}" type="number" inputmode="numeric" value="${s[k2] ?? ''}" placeholder="${p[k2] ?? (k2 === 't' ? e.timeMin : e.repMin)}">`}
@@ -1315,6 +1324,7 @@ function kpBuild() {
 }
 const kpInputs = () => { const root = kp.inp?.closest('.sheet') || $('#view'); return $$('input[type=number]', root).filter(i => i.offsetParent); };
 function kpLabel(inp) {
+  if (inp.dataset.lbl) return inp.dataset.lbl;
   const row = inp.closest('.set-row'), card = inp.closest('.log-ex');
   const unit = inp.dataset.k === 'w' ? 'kg' : inp.dataset.k === 't' ? 'secondes' : inp.dataset.k === 'r' ? 'reps' : (inp.closest('.field')?.querySelector('label')?.textContent || '');
   if (card && row) return `${$('h3', card)?.firstChild?.textContent || ''} · série ${row.dataset.si != null ? +row.dataset.si + 1 : +row.dataset.i + 1} · ${unit}`;

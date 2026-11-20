@@ -406,7 +406,7 @@ body.in-session .timer-bar b { font-size: 20px; }
 /* ---------- séances custom : configuration */
 .tpl-go { width: 48px; align-self: stretch; border-radius: 12px; background: var(--grad); color: #04121c; font-size: 18px; font-weight: 800; flex: none; }
 .menu .tpl-row .tpl-go { padding: 0; text-align: center; background: var(--grad); }
-.te-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin-bottom: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.te-row { display: block; padding: 6px 8px; margin-bottom: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
 .te-row .drag { width: 18px; height: 32px; display: grid; place-items: center; color: var(--muted); touch-action: none; cursor: grab; flex: none; }
 .te-row .drag svg { width: 14px; height: 14px; fill: currentColor; }
 .te-row .illu.thumb { width: 40px; height: 30px; border-radius: 7px; flex: none; }
@@ -415,3 +415,14 @@ body.in-session .timer-bar b { font-size: 20px; }
 .te-sets button { width: 28px; height: 28px; border-radius: 8px; background: var(--card2); font-weight: 800; }
 .te-sets b { min-width: 18px; text-align: center; font-variant-numeric: tabular-nums; }
 .te-row .mini-btn { width: 28px; height: 28px; }
+
+.te-l1 { display: flex; align-items: center; gap: 8px; }
+.te-l1 .lx-t { flex: 1; min-width: 0; }
+.te-l2 { display: flex; align-items: center; gap: 6px; margin: 6px 0 2px 26px; }
+.te-sets span, .te-f span { font-size: 11px; color: var(--muted); }
+.te-sets span { margin-left: 2px; }
+.te-f { display: flex; align-items: center; gap: 3px; flex: 1; min-width: 0; }
+.te-f input { width: 100%; min-width: 0; padding: 6px 4px; text-align: center; font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.te-f input::placeholder { color: color-mix(in srgb, var(--gold) 60%, var(--muted)); font-weight: 500; }
+.te-x { color: var(--muted); font-size: 13px; }
+.te-f span { white-space: nowrap; }
