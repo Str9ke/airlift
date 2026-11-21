@@ -85,6 +85,10 @@ export const EX_MUSCLES = {
   'abdominaux': M('abdos'), 'crunch-haltere': M('abdos'), 'crunch-jambes': M('abdos', 'psoas'), 'reverse-crunch': M('abdos', 'psoas'),
   'releve-jambes-banc-45': M('abdos psoas'), 'obliques-inclines': M('obliques', 'abdos'),
   'gainage': M('abdos', 'obliques'), 'plank-coudes': M('abdos', 'obliques'), 'plank-sous-coudes': M('abdos', 'obliques'),
+  // mobilité de hanche (bloc avant board-off)
+  'mobilite-hanche': M('adducteurs fessiers psoas'), 'mh-deep-squat': M('adducteurs fessiers', 'quadri'), 'mh-ds-coudes': M('adducteurs'),
+  'mh-ds-transfert': M('adducteurs fessiers'), 'mh-ds-rotation': M('obliques adducteurs', 'fessiers'), 'mh-90-90': M('fessiers', 'adducteurs'),
+  'mh-grenouille': M('adducteurs'), 'mh-pied-table': M('fessiers ischios'), 'mh-boardoff-assis': M('psoas abdos'),
   // mobilité (hors programme)
   'chat-chameau': M('lombaires abdos'), 'etirement-pike-assis': M('ischios'), 'ischios-pnf': M('ischios'),
   'ecart-actif': M('adducteurs', 'ischios'), 'figure-4-assis': M('fessiers'),

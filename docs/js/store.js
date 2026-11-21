@@ -32,6 +32,7 @@ const OLD_DAYS = { A: 'mar', BO: 'ven', B: 'dim' }; // jours de la 1.0.0
 export function normalizeExercise(e, i = 0) {
   const eq = EQUIP[e.equip] || EQUIP.machine;
   return {
+    ...e, // garde tous les champs propres à l'exercice (muscles, bloc, dosage, notes de série…)
     id: e.id || uid(), name: e.name || 'Exercice', category: e.category || 'Autre',
     equip: e.equip || 'machine', type: e.type || 'load',
     inc: e.inc ?? eq.inc, sets: e.sets ?? 2,
@@ -118,6 +119,36 @@ MIGRATIONS.push({ id: '2026-11-17-sans-jeudi', run(st) {
 MIGRATIONS.push({ id: '2026-11-19-mollets', run(st) {
   const p = EXTRA.find(x => x.id === 'mollets-pointe');
   if (p) addIfMissing(st, p, false); // créé, disponible (séance personnalisée, ajout à un jour), pas imposé dans le programme
+} });
+
+MIGRATIONS.push({ id: '2026-11-21-mobilite-hanche', run(st) {
+  const byId = new Map(st.exercises.map(e => [e.id, e]));
+  // 1) exercices de mobilité de hanche + le bloc qui les regroupe
+  EXTRA.filter(p => p.id.startsWith('mh-') || p.id === 'mobilite-hanche').forEach(p => { const e = byId.get(p.id); if (e) Object.assign(e, { items: p.items, dose: p.dose, type: p.type }); else addIfMissing(st, p, false); });
+  // 2) flexion de hanche poulie : 2e série avec un angle ouvert (position du pied en board-off)
+  const ps = byId.get('psoas-march');
+  if (ps) {
+    ps.setNotes = { 1: 'Série 2 : angle ouvert — genou dirigé ~30-45° vers l\'extérieur (rotation externe + légère abduction), comme la jambe avant pendant le board-off' };
+    if (!/série 2/i.test(ps.cue || '')) ps.cue = (ps.cue ? ps.cue + ' · ' : '') + 'série 2 : angle ouvert vers l\'extérieur (position du board-off)';
+    if ((ps.sets || 0) < 2) ps.sets = 2;
+  }
+  // 3) séance custom 1 : bloc mobilité juste avant le 1er exercice de board-off, plus de travail de jambes après
+  const t = (st.templates || []).find(x => /custom 1$/i.test(x.name)) || (st.templates || [])[0];
+  if (t && !t.ex.includes('mobilite-hanche')) {
+    const BO = ['harnais-planche', 'strap-finding-drill', 'tucks-explosifs', 'tuck-hold', 'tenue-barre-1-main'];
+    const LEGS = ['squat', 'deadlift', 'mollets-pointe', 'squat-1-pied', 'chaise-quadriceps', 'swing-kettlebell', 'arrache-epaule-jete', 'extension-dos'];
+    let i = t.ex.findIndex(id => BO.includes(id)); if (i < 0) i = t.ex.length;
+    const late = t.ex.slice(i).filter(id => LEGS.includes(id));
+    t.ex = [...t.ex.slice(0, i), ...late, 'mobilite-hanche', ...t.ex.slice(i).filter(id => !late.includes(id))];
+    if (t.sets && t.sets['psoas-march'] < 2) delete t.sets['psoas-march'];
+  }
+  // 4) mardi : squat et deadlift avant le board-off (plus de musculation des jambes après)
+  const h = byId.get('harnais-planche');
+  if (h?.active) {
+    const firstBO = Math.min(...['harnais-planche', 'tenue-barre-1-main', 'strap-finding-drill', 'tucks-explosifs', 'tuck-hold'].map(id => byId.get(id)).filter(e => e?.active && e.days.includes('mar')).map(e => e.order));
+    ['squat', 'deadlift'].forEach((id, k) => { const e = byId.get(id); if (e?.active && e.days.includes('mar') && e.order > firstBO) e.order = firstBO - 0.3 + k * 0.1; });
+    st.exercises.filter(e => e.active).sort((a, b) => a.order - b.order).forEach((e, n) => { e.order = n; });
+  }
 } });
 
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).

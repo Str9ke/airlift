@@ -69,12 +69,34 @@ export const TYPES = {
   reps: 'Répétitions',
   time: 'Durée (s)',
   load_time: 'Charge × durée',
+  check: 'À cocher (mobilité)',
+  group: 'Bloc d\'exercices',
 };
 
 export const CATEGORIES = ['Board-off', 'Mobilité', 'Abdos', 'Dos', 'Pecs', 'Épaules', 'Biceps', 'Triceps', 'Jambes', 'Cardio', 'Autre'];
 
 // Proposés hors programme (anciens exercices), à activer d'un tap.
 export const EXTRA = [
+  // ---- mobilité de hanche (bloc à cocher, avant le board-off)
+  { id: 'mh-deep-squat', name: 'Deep squat tenu (dos droit)', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '2 × 45-60 s',
+    cue: 'Pieds largeur d\'épaules, pointes légèrement ouvertes, talons au sol · descends au plus bas en gardant le dos long (poitrine haute, pas d\'arrondi en bas du dos) · respire calmement, relâche un peu plus à chaque expiration · si les talons décollent : tiens un support devant toi' },
+  { id: 'mh-ds-coudes', name: 'Deep squat : coudes qui ouvrent les genoux', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '8 poussées de 3-5 s',
+    cue: 'En bas du deep squat, mains jointes, coudes contre l\'intérieur des genoux · pousse les genoux vers l\'extérieur 3-5 s, relâche, gagne un peu d\'amplitude, recommence · dos droit' },
+  { id: 'mh-ds-transfert', name: 'Deep squat : transfert droite / gauche', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '6-8 par côté · 2-3 s de chaque côté',
+    cue: 'En bas du deep squat, déplace lentement le poids sur la jambe droite (le genou droit avance, la hanche gauche s\'ouvre), tiens 2-3 s, puis à gauche · dos droit, talons au sol' },
+  { id: 'mh-ds-rotation', name: 'Deep squat : rotation du tronc, bras vers le haut', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '5 par côté · 3 s en haut',
+    cue: 'En bas du deep squat, une main au sol ou contre l\'intérieur du genou, l\'autre monte vers le plafond en tournant le buste · regarde ta main, 3 s en haut · alterne les deux côtés' },
+  { id: 'mh-90-90', name: '90/90 assis : bascule des genoux + penché', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '6 bascules · à chaque côté, penché 20-30 s',
+    cue: 'Assis, genou avant et genou arrière pliés à 90° · bascule les deux genoux à droite puis à gauche (rotation interne / externe), mains au sol si besoin · à chaque côté : penche-toi en avant dos long au-dessus du tibia avant (rotation externe), puis vers la jambe arrière (rotation interne)' },
+  { id: 'mh-grenouille', name: 'Grenouille (frog) + variantes', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '8-10 balancements · tenue 30-45 s · 5 pieds levés par côté',
+    cue: 'À quatre pattes sur les avant-bras, genoux très écartés, tibias parallèles, chevilles dans l\'alignement des genoux · 1) recule les fesses vers les talons puis reviens · 2) tiens en bas 30-45 s · 3) variante : genoux au sol, lève un pied vers le plafond (rotation interne), puis l\'autre' },
+  { id: 'mh-pied-table', name: 'Pied sur la table : flexion profonde multi-angles', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '3 angles × 20-30 s · par hanche',
+    cue: 'Pied sur une table ou un banc (hauteur de hanche), jambe d\'appui tendue, dos long · descends le buste vers le genou dans plusieurs angles : droit devant, vers l\'intérieur (épaule opposée vers le genou), vers l\'extérieur · une hanche à la fois' },
+  { id: 'mh-boardoff-assis', name: 'Board-off assis au sol avec la planche', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '6-8 rép. · 2-3 s genoux à la poitrine',
+    cue: 'Assis au sol, mains derrière toi, pieds dans les straps · ramène les genoux à la poitrine en décollant la planche (compression de hanche, comme le tuck du board-off), tiens 2-3 s, repose sans à-coup · en fin de bloc' },
+  { id: 'mobilite-hanche', name: 'Mobilité de hanche (avant board-off)', category: 'Mobilité', equip: 'bodyweight', type: 'group', days: [], sets: 1, dose: '8 exercices · ≈ 12-15 min',
+    items: ['mh-deep-squat', 'mh-ds-coudes', 'mh-ds-transfert', 'mh-ds-rotation', 'mh-90-90', 'mh-grenouille', 'mh-pied-table', 'mh-boardoff-assis'],
+    cue: 'Bloc d\'ouverture de hanche juste avant le board-off · coche chaque exercice quand il est fait' },
   { id: 'mollets-pointe', name: 'Montée sur la pointe des pieds', category: 'Jambes', equip: 'db2', type: 'load', days: ['dim'], sets: 2, repMin: 10, repMax: 15, cue: 'Avant du pied sur une marche, talons dans le vide · descends en étirement 1 s, monte le plus haut possible, tiens 1 s · charge = haltère par main (0 = sans charge)' },
   { id: 'chat-chameau', name: 'Chat-chameau (enroulement du bassin)', category: 'Mobilité', equip: 'bodyweight', type: 'reps', days: ['ven'], sets: 2, repMin: 10, repMax: 12, cue: 'À 4 pattes · enroule le bassin et arrondis le dos lentement, puis creuse · même geste qu\'en haut du tuck' },
   { id: 'etirement-pike-assis', name: 'Pike assis (étirement ischios)', category: 'Mobilité', equip: 'bodyweight', type: 'time', days: ['ven'], sets: 2, timeMin: 45, timeMax: 60, cue: 'Assis jambes tendues, bascule le bassin en avant, dos long · tension nette mais pas de douleur · respire' },

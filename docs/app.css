@@ -426,3 +426,28 @@ body.in-session .timer-bar b { font-size: 20px; }
 .te-f input::placeholder { color: color-mix(in srgb, var(--gold) 60%, var(--muted)); font-weight: 500; }
 .te-x { color: var(--muted); font-size: 13px; }
 .te-f span { white-space: nowrap; }
+
+/* ---------- exercices à cocher / bloc mobilité */
+.ck-card.grp { border-color: color-mix(in srgb, var(--good) 35%, var(--line)); }
+.ck-card .lx-t[data-gopen] { cursor: pointer; }
+.ck-chev { font-size: 22px; color: var(--text2); transition: transform .15s; flex: none; padding: 0 4px; }
+.ck-chev.on { transform: rotate(90deg); }
+.ck-bar { height: 5px; background: var(--bg2); border-radius: 9px; overflow: hidden; margin: 6px 0 2px; }
+.ck-bar i { display: block; height: 100%; background: var(--good); border-radius: 9px; }
+.ck-hint { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.ck-list { margin-top: 6px; display: grid; gap: 6px; }
+.ck-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px; border-radius: 10px; background: var(--bg2); }
+.ck-row.on { opacity: .65; }
+.ck-row .chk { width: 34px; height: 34px; border-radius: 9px; border: 1.5px solid var(--line); display: grid; place-items: center; color: transparent; flex: none; }
+.ck-row .chk.on { background: var(--good); border-color: var(--good); color: #06281b; }
+.ck-row .chk svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 3; fill: none; }
+.ck-row .illu-btn { flex: none; width: auto; }
+.ck-row .illu.thumb { width: 44px; height: 33px; border-radius: 7px; }
+.ck-t { flex: 1; min-width: 0; font-size: 13px; }
+.ck-t b { display: block; line-height: 1.25; }
+.ck-dose { color: var(--accent); font-weight: 650; font-size: 12px; margin-top: 1px; }
+.ck-cue { color: var(--text2); font-size: 11.5px; margin-top: 2px; line-height: 1.3; }
+.ck-row.on .ck-cue { display: none; }
+.set-note { font-size: 11.5px; color: var(--gold); font-weight: 600; margin: -2px 0 5px 28px; line-height: 1.3; }
+.te-ck { font-size: 12px; color: var(--accent); font-weight: 600; }
+.ck-cue { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; } .ck-cue.full { display: block; }

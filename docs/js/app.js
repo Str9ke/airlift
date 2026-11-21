@@ -8,7 +8,7 @@ import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 
-export const APP_VERSION = '1.11.1';
+export const APP_VERSION = '1.12.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -311,7 +311,7 @@ function editExercise(e, { onSaved = null, free = false } = {}) {
     <div class="field"><label>Illustration</label><div class="row" style="gap:10px;align-items:center">${illuHTML(d, 'thumb lg')}<div class="grow"><button class="btn sm" id="f-illu" type="button">Changer l'illustration…</button></div></div></div>
     <div class="field"><label>Jours du programme</label><div class="seg" id="f-days">${DAYS_().map(x => `<button data-v="${x.id}" class="${d.days.includes(x.id) ? 'on' : ''}">${esc(x.label)}</button>`).join('')}</div></div>
     <div class="field"><label>Matériel</label><div class="seg" id="f-equip">${Object.entries(EQUIP).map(([k, x]) => `<button data-v="${k}" class="${d.equip === k ? 'on' : ''}">${x.label}</button>`).join('')}</div><div class="hint" id="f-equip-hint">${EQUIP[d.equip]?.hint || ''}</div></div>
-    <div class="field"><label>Mesure</label><div class="seg" id="f-type">${Object.entries(TYPES).map(([k, x]) => `<button data-v="${k}" class="${d.type === k ? 'on' : ''}">${x}</button>`).join('')}</div></div>
+    <div class="field"><label>Mesure</label><div class="seg" id="f-type">${Object.entries(TYPES).filter(([k]) => k !== 'group' || d.type === 'group').map(([k, x]) => `<button data-v="${k}" class="${d.type === k ? 'on' : ''}">${x}</button>`).join('')}</div></div>
     <div class="grid3">
       <div class="field"><label>Séries</label><input id="f-sets" type="number" inputmode="numeric" value="${d.sets}"></div>
       <div class="field" data-rep><label>Reps min</label><input id="f-rmin" type="number" inputmode="numeric" value="${d.repMin}"></div>
@@ -323,6 +323,7 @@ function editExercise(e, { onSaved = null, free = false } = {}) {
     <label class="check-row"><input type="checkbox" id="f-side" ${d.side ? 'checked' : ''}> Par côté (un bras / une jambe à la fois : séries comptées ×2)</label>
     <label class="check-row"><input type="checkbox" id="f-ss" ${d.superset ? 'checked' : ''}> Superset : enchaîner avec l'exercice suivant du jour, puis repos (gain de temps)</label>
     <div class="field"><label>Catégorie</label><select id="f-cat">${CATEGORIES.map(c => `<option ${c === d.category ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+    <div class="field" data-dose><label>Dosage (durée, répétitions)</label><input id="f-dose" value="${esc(d.dose || '')}" placeholder="ex. 2 × 45-60 s"></div>
     <div class="field"><label>Consigne / repère</label><input id="f-cue" value="${esc(d.cue)}" placeholder="ex. descente 3 s"></div>
     <div class="field"><label>Muscles <span class="muted">· 1 appui = principal, 2 = secondaire, 3 = aucun</span></label><div id="f-mz-fig"></div><div class="seg mz-seg" id="f-mz"></div></div>
     <button class="btn primary block" id="f-save">${isNew ? (free ? 'Créer l\'exercice' : 'Ajouter au programme') : 'Enregistrer'}</button>`);
@@ -342,7 +343,10 @@ function editExercise(e, { onSaved = null, free = false } = {}) {
     const tt = t === 'time' || t === 'load_time';
     $$('[data-rep]', sh).forEach(x => x.style.display = tt ? 'none' : '');
     $$('[data-time]', sh).forEach(x => x.style.display = tt ? '' : 'none');
-    $('[data-inc]', sh).style.display = (t === 'reps' || t === 'time') ? 'none' : '';
+    const ck = t === 'check' || t === 'group';
+    $('[data-inc]', sh).style.display = (t === 'reps' || t === 'time' || ck) ? 'none' : '';
+    if (ck) { $$('[data-rep], [data-time]', sh).forEach(x => x.style.display = 'none'); }
+    $('[data-dose]', sh).style.display = ck ? '' : 'none';
   };
   seg('f-days', true); seg('f-equip'); seg('f-type'); vis();
   $('#f-illu', sh).onclick = () => pickIllustration(d, img => { d.img = img; if (e) e.img = img; const t = $('.illu', sh); t.outerHTML = illuHTML(d, 'thumb lg'); if (e) { commit(); } });
@@ -354,7 +358,7 @@ function editExercise(e, { onSaved = null, free = false } = {}) {
       name, days: $$('#f-days .on', sh).map(b => b.dataset.v), equip: $('#f-equip .on', sh).dataset.v, type: $('#f-type .on', sh).dataset.v,
       sets: +$('#f-sets', sh).value || 3, repMin: +$('#f-rmin', sh).value || 8, repMax: +$('#f-rmax', sh).value || 12,
       timeMin: +$('#f-tmin', sh).value || 20, timeMax: +$('#f-tmax', sh).value || 45, inc: +$('#f-inc', sh).value || 0,
-      category: $('#f-cat', sh).value, cue: $('#f-cue', sh).value, side: $('#f-side', sh).checked, superset: $('#f-ss', sh).checked, img: d.img ?? t.img ?? null,
+      category: $('#f-cat', sh).value, cue: $('#f-cue', sh).value, dose: $('#f-dose', sh).value.trim(), side: $('#f-side', sh).checked, superset: $('#f-ss', sh).checked, img: d.img ?? t.img ?? null,
     });
 
     if (t.repMax < t.repMin) t.repMax = t.repMin;
@@ -522,12 +526,14 @@ async function deleteDraft() {
   saveDraft(null); render(); toast('Séance supprimée');
 }
 
+const isCheck = e => e && (e.type === 'check' || e.type === 'group');
+const checkItems = e => e.type === 'group' ? (e.items || []).map(id => getEx(id)).filter(Boolean) : [e];
 const tplOf = id => (S().templates || []).find(t => t.id === id);
 function startSession(day, ids = null, tpl = null) {
   const cur = loadDraft();
   if (cur) { setTab('log'); toast('Une séance est déjà en cours — termine-la ou supprime-la'); return; }
   const list = ids ? ids.map(getEx).filter(Boolean) : S().exercises.filter(e => e.active && (!day || e.days.includes(day))).sort((a, b) => a.order - b.order);
-  saveDraft({ id: uid(), date: today(), day, tpl: tpl || null, custom: !day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => { const tg = tpl && tplOf(tpl)?.targets?.[e.id]; return { ex: e.id, ...(tg ? { target: { ...tg } } : {}), sets: Array.from({ length: (tpl && tplOf(tpl)?.sets?.[e.id]) || setsOn(e, day) }, () => ({})) }; }) });
+  saveDraft({ id: uid(), date: today(), day, tpl: tpl || null, custom: !day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => { if (isCheck(e)) return { ex: e.id, checks: {}, sets: [] }; const tg = tpl && tplOf(tpl)?.targets?.[e.id]; return { ex: e.id, ...(tg ? { target: { ...tg } } : {}), sets: Array.from({ length: (tpl && tplOf(tpl)?.sets?.[e.id]) || setsOn(e, day) }, () => ({})) }; }) });
   setTab('log');
 }
 
@@ -564,7 +570,7 @@ function renderLog(v) {
   const ed = $('#l-editor', v);
   const onSet = (e, nextEn) => {
     d.lastSetAt = Date.now();
-    const nx = e?.superset && nextEn ? getEx(nextEn.ex) : null;
+    const nx = d.day && e?.superset && nextEn ? getEx(nextEn.ex) : null;
     d.restGoal = e ? C.restFor(e, !!nx) : (S().settings.restSec || 120);
     d.restLabel = nx ? `⇄ enchaîne : ${nx.name}` : `objectif ${clock(1, 1 + d.restGoal * 1000)}`;
     saveDraft(d);
@@ -575,18 +581,19 @@ function renderLog(v) {
     if (loadDraft() !== d || !ed.isConnected) return;
     const dn = d.entries.filter(x => x.doneAt).sort((x, y) => x.doneAt - y.doneAt);
     d.entries = [...dn, ...d.entries.filter(x => !x.doneAt)];
+    const nx = d.entries.find(x => !x.doneAt); if (nx && getEx(nx.ex)?.type === 'group') openGroups.add(nx.ex);
     saveDraft(d);
     const wasKp = kp.open;
     draw();
     const next = $$('.log-ex', ed).find(c => !d.entries[+c.dataset.ei]?.doneAt);
-    if (next) { next.scrollIntoView({ block: 'start', behavior: 'smooth' }); const i = $('.set-row input', next); if (wasKp && i) kpOpen(i, false); }
+    if (next) { next.scrollIntoView({ block: 'start', behavior: 'smooth' }); const i = $('.set-row input', next); if (wasKp && i) kpOpen(i, false); else if (wasKp) kpClose(); }
     else { if (wasKp) kpClose(); $('#l-add', v).scrollIntoView({ block: 'center', behavior: 'smooth' }); toast('Tous les exercices sont faits 💪'); }
   }, 450);
   const draw = () => sessionEditor(ed, d, () => saveDraft(d), { suggest: true, onSet, live: true, onDone });
   draw();
   $('#l-menu', v).onclick = () => sessionMenu(d, name);
   $('#l-note', v).oninput = ev => { d.note = ev.target.value; saveDraft(d); };
-  $('#l-add', v).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push({ ex: id, sets: Array.from({ length: e.sets || 3 }, () => ({})) }); saveDraft(d); render(); setTimeout(() => $$('.log-ex').at(-1)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60); }, d.entries.map(en => en.ex));
+  $('#l-add', v).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push(isCheck(e) ? { ex: id, checks: {}, sets: [] } : { ex: id, sets: Array.from({ length: e.sets || 3 }, () => ({})) }); saveDraft(d); render(); setTimeout(() => $$('.log-ex').at(-1)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60); }, d.entries.map(en => en.ex));
   $('#l-finish', v).onclick = () => finishSession(d);
 }
 
@@ -607,7 +614,7 @@ const startTpl = t => startSession(null, t.ex.filter(id => getEx(id)), t.id);
 /** Configurer une séance custom : nom, exercices, ordre (glisser), séries ; puis enregistrer et/ou commencer. */
 function tplEdit(t) {
   const w = { name: t.name, ex: t.ex.filter(id => getEx(id)), sets: { ...(t.sets || {}) }, targets: JSON.parse(JSON.stringify(t.targets || {})) };
-  const setsOf = id => w.sets[id] || getEx(id).sets || 2;
+  const setsOf = id => isCheck(getEx(id)) ? 0 : (w.sets[id] || getEx(id).sets || 2);
   const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-back aria-label="Retour">${ICON.back}</button><h2>Configurer la séance</h2></div>
     <div class="field"><label>Nom</label><input id="te-name" value="${esc(t.name)}"></div>
     <div class="sub" id="te-sum"></div>
@@ -620,7 +627,11 @@ function tplEdit(t) {
   const draw = () => {
     const list = $('#te-list', sh);
     list.innerHTML = w.ex.map(id => {
-      const e = getEx(id), tg = w.targets[id] || {}, auto = C.suggest(e).sets[0] || {};
+      const e = getEx(id), tg = w.targets[id] || {};
+      if (isCheck(e)) return `<div class="te-row" data-id="${id}"><div class="te-l1"><span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>${illuHTML(e, 'thumb')}
+        <div class="lx-t"><h3>${esc(e.name)}</h3><div class="mus">${esc(e.type === 'group' ? `${checkItems(e).map(x => x.name.replace(/^Deep squat : /, 'DS ')).join(' · ')}` : e.dose || '')}</div></div>
+        <button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div><div class="te-l2 te-ck">☑ ${esc(e.dose || 'à cocher')}</div></div>`;
+      const auto = C.suggest(e).sets[0] || {};
       const keys = e.type === 'time' ? ['t'] : e.type === 'reps' ? ['r'] : e.type === 'load_time' ? ['w', 't'] : ['w', 'r'];
       const lbl = { w: e.type === 'bw_load' ? 'lest' : e.type === 'assisted' ? 'assist.' : 'kg', r: 'reps', t: 'sec' };
       const fld = k => `<label class="te-f"><input type="number" inputmode="${k === 'w' ? 'decimal' : 'numeric'}" step="${k === 'w' ? '0.25' : '1'}" data-k="${k}" data-lbl="${esc(e.name)} · objectif ${k === 'w' ? unitW(e) : k === 't' ? 'secondes' : 'reps'}" value="${tg[k] ?? ''}" placeholder="${auto[k] ?? ''}"><span>${lbl[k]}</span></label>`;
@@ -665,11 +676,29 @@ function tplEdit(t) {
 
 /** Éditeur de séries — partagé entre la séance en cours (live) et l'édition d'historique. */
 const openDone = new Set(); // exercices terminés que tu as rouverts
+const openGroups = new Set(); // blocs (mobilité…) dépliés
+function checkCard(en, e, ei, live) {
+  en.checks = en.checks || {};
+  const items = checkItems(e), n = items.filter(x => en.checks[x.id]).length, done = n === items.length && items.length > 0;
+  const group = e.type === 'group', open = group ? openGroups.has(e.id) : true;
+  if (live && done && !openDone.has(en.ex)) return `<div class="log-ex done folded" data-ei="${ei}" data-kind="chk"><div class="lx-head"><span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span><button class="illu-btn" data-illu>${illuHTML(e, 'thumb')}</button><div class="lx-t" data-fold><h3>${esc(e.name)}</h3></div><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div><div class="lx-sum">✓ ${n}/${items.length} faits</div></div>`;
+  return `<div class="log-ex ck-card ${done ? 'done' : ''} ${group ? 'grp' : ''}" data-ei="${ei}" data-kind="chk">
+    <div class="lx-head">${live ? `<span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>` : ''}<button class="illu-btn" data-illu>${illuHTML(e, 'thumb')}</button>
+      <div class="lx-t" data-gopen><h3>${esc(e.name)}</h3><div class="mus">${group ? `${n}/${items.length} faits · ${esc(e.dose || '')}` : esc(e.dose || MZ.musclesText(e))}</div></div>
+      ${group ? `<span class="ck-chev ${open ? 'on' : ''}">›</span>` : ''}<button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>
+    ${group ? `<div class="ck-bar"><i style="width:${items.length ? n / items.length * 100 : 0}%"></i></div>` : ''}
+    ${open ? `<div class="ck-list">${items.map(x => `<div class="ck-row ${en.checks[x.id] ? 'on' : ''}" data-cid="${x.id}">
+      <button class="chk ${en.checks[x.id] ? 'on' : ''}" data-ck aria-label="Fait">${ICON.check}</button>
+      ${group ? `<button class="illu-btn" data-cillu="${x.id}">${illuHTML(x, 'thumb')}</button>` : ''}
+      <div class="ck-t"><b>${esc(group ? x.name : 'Fait')}</b><div class="ck-dose">⏱ ${esc(x.dose || '')}</div><div class="ck-cue">${esc(x.cue || '')}</div></div></div>`).join('')}</div>` : `<div class="ck-hint">Touche pour ouvrir les ${items.length} exercices</div>`}
+  </div>`;
+}
 function sessionEditor(host, d, onChange, opts = {}) {
   const { suggest = false, onSet = null, reorder = false, live = false, onDone = null } = opts;
   const redraw = () => sessionEditor(host, d, onChange, opts);
   host.innerHTML = d.entries.map((en, ei) => {
     const e = getEx(en.ex); if (!e) return '';
+    if (isCheck(e)) return checkCard(en, e, ei, live);
     const st = C.exStats(e.id);
     const sg = suggest ? C.suggest(e, d.day) : { sets: [] };
     const time = e.type === 'time', repsOnly = e.type === 'reps', k2 = e.type === 'load_time' ? 't' : 'r';
@@ -677,7 +706,7 @@ function sessionEditor(host, d, onChange, opts = {}) {
     const last = prev.at(-1);
     const done = en.sets.length && en.sets.every(s => s.done);
     const folded = live && done && !openDone.has(en.ex);
-    const nx = e.superset && d.entries[ei + 1] ? getEx(d.entries[ei + 1].ex) : null;
+    const nx = d.day && e.superset && d.entries[ei + 1] ? getEx(d.entries[ei + 1].ex) : null; // supersets pensés pour les jours du programme
     const head = `<div class="lx-head">${live || reorder ? `<span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>` : ''}<button class="illu-btn" data-illu aria-label="Voir l'exercice et la consigne">${illuHTML(e, 'thumb')}</button>
       <div class="lx-t" data-fold><h3>${esc(e.name)}${nx ? ' <span class="tag ss">⇄</span>' : ''}</h3>${MZ.musclesText(e) ? `<div class="mus">${esc(MZ.musclesText(e))}</div>` : ''}</div>
       <span class="lx-sp">${sparkline(prev.slice(-3).map(h => h.perf), { w: 44, h: 18 })}</span><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>`;
@@ -691,12 +720,31 @@ function sessionEditor(host, d, onChange, opts = {}) {
         ${time ? `<input data-k="t" type="number" inputmode="numeric" value="${s.t ?? ''}" placeholder="${p.t ?? e.timeMin}">`
         : repsOnly ? `<input data-k="r" type="number" inputmode="numeric" value="${s.r ?? ''}" placeholder="${p.r ?? e.repMin}">`
         : `<input data-k="w" type="number" inputmode="decimal" step="0.25" value="${s.w ?? ''}" placeholder="${p.w ?? ''}"><input data-k="${k2}" type="number" inputmode="numeric" value="${s[k2] ?? ''}" placeholder="${p[k2] ?? (k2 === 't' ? e.timeMin : e.repMin)}">`}
-        <button class="chk ${s.done ? 'on' : ''}" data-chk aria-label="Série faite">${ICON.check}</button></div>`; }).join('')}
+        <button class="chk ${s.done ? 'on' : ''}" data-chk aria-label="Série faite">${ICON.check}</button></div>${e.setNotes?.[si] ? `<div class="set-note">↗ ${esc(e.setNotes[si])}</div>` : ''}`; }).join('')}
       <div class="lx-foot"><button class="lnk" data-addset>+ série</button>${en.sets.length > 1 ? '<button class="lnk" data-delset>− série</button>' : ''}<span class="grow"></span><button class="lnk" data-plan>prochaine fois…</button></div>
     </div>`;
   }).join('') || '<div class="empty">Aucun exercice. Ajoute-en un.</div>';
   $$('.log-ex', host).forEach(card => {
     const en = d.entries[+card.dataset.ei];
+    if (card.dataset.kind === 'chk') {
+      const e = getEx(en.ex);
+      $('[data-illu]', card).onclick = () => showIllustration(e);
+      $('[data-rm]', card).onclick = () => { d.entries.splice(+card.dataset.ei, 1); onChange(); redraw(); };
+      const fo = $('[data-fold]', card); if (fo) fo.onclick = () => { openDone.add(en.ex); openGroups.add(en.ex); redraw(); };
+      const go = $('[data-gopen]', card);
+      if (go) go.onclick = () => { if (e.type !== 'group') return; if (openGroups.has(e.id)) { openGroups.delete(e.id); if (en.doneAt) openDone.delete(en.ex); } else openGroups.add(e.id); redraw(); };
+      $$('[data-cillu]', card).forEach(b => b.onclick = () => showIllustration(getEx(b.dataset.cillu)));
+      $$('.ck-cue', card).forEach(c => c.onclick = () => c.classList.toggle('full'));
+      $$('.ck-row', card).forEach(r => { $('[data-ck]', r).onclick = () => {
+        const id = r.dataset.cid; en.checks[id] = !en.checks[id]; if (!en.checks[id]) delete en.checks[id];
+        const items = checkItems(e), all = items.every(x => en.checks[x.id]), was = !!en.doneAt;
+        if (live) { if (all && !en.doneAt) en.doneAt = Date.now(); if (!all) delete en.doneAt; }
+        if (en.checks[id] && navigator.vibrate) navigator.vibrate(15);
+        onChange(); redraw();
+        if (live && all && !was) { openDone.delete(en.ex); onDone && onDone(en); }
+      }; });
+      return;
+    }
     const fold = $('[data-fold]', card);
     if (live) fold.onclick = () => { if (!en.sets.every(x => x.done)) return; if (openDone.has(en.ex)) openDone.delete(en.ex); else openDone.add(en.ex); redraw(); };
     $('[data-illu]', card).onclick = () => showIllustration(getEx(en.ex));
@@ -796,11 +844,13 @@ function cleanEntries(d) {
 
 function finishSession(d) {
   const entries = cleanEntries(d);
-  if (!entries.length) { toast('Aucune série remplie'); return; }
+  const checks = d.entries.flatMap(en => en.checks ? Object.keys(en.checks).filter(k => en.checks[k]) : []);
+  if (!entries.length && !checks.length) { toast('Aucune série remplie'); return; }
   const before = C.sessionScores().at(-1)?.cum || 0;
   const end = Date.now();
   const sess = { id: d.id, date: d.date, note: d.note, source: 'app', entries };
   if (d.day) sess.day = d.day;
+  if (checks.length) sess.checks = checks;
   let tplMsg = '';
   if (!d.day) {
     S().templates = S().templates || [];
@@ -825,6 +875,7 @@ function finishSession(d) {
       ${tplMsg ? `<div class="sub" style="margin:4px 0">💾 ${esc(tplMsg)}</div>` : ''}
       ${sess.dur ? `<div class="summary-time">⏱ ${fmtMin(sess.dur)} <span class="muted">(${sess.start} → ${sess.end})</span></div>` : ''}
       <div class="sub">Total : ${fmt((sc?.cum ?? before), 0)} pts · ${entries.length} exercices · facteur volume ×${fmt(sc?.vol ?? 1, 2)}</div>
+      ${checks.length ? `<div class="sub">🧘 Mobilité : ${checks.length} exercice${checks.length > 1 ? 's' : ''} coché${checks.length > 1 ? 's' : ''}</div>` : ''}
 
       ${prNames.length ? `<p><span class="pr-badge">🏆 RECORD ABSOLU</span> ${prNames.map(esc).join(', ')}</p>` : ''}
       ${segNames.length ? `<p><span class="rep-badge">⚡ RECORD DE REPRISE</span> ${segNames.map(esc).join(', ')}</p>` : ''}
@@ -1015,7 +1066,7 @@ function renderHist(v) {
       const dy = sessDay(s);
       html += `<button class="hist-item" data-id="${s.id}"><div class="row"><span class="d grow">${dy ? dayTag(dy) : ''}${wdShort(s.date)} ${fdate(s.date)}${s.approx ? ' <span class="muted" title="date estimée">≈</span>' : ''}</span>${x ? `<span class="pts ${x.pts > 2 ? 'up' : x.pts < 0 ? 'down' : ''}">${x.pts > 0 ? '+' : ''}${x.pts} pts</span>` : ''}</div>
         <div class="s hm">${s.entries.length} exo${s.entries.length > 1 ? 's' : ''} · ${(n => `${n} série${n > 1 ? 's' : ''}`)(s.entries.reduce((a, en) => a + en.sets.length, 0))}${s.dur ? ` · ⏱ ${fmtMin(s.dur)}` : ''}${s.start ? ` <span class="muted">(${s.start}${s.end ? '→' + s.end : ''})</span>` : ''}</div>
-        <div class="s">${names}</div>${s.note ? `<div class="s" style="color:var(--muted)">📝 ${esc(s.note)}</div>` : ''}</button>`;
+        <div class="s">${names}</div>${s.checks?.length ? `<div class="s">🧘 mobilité : ${esc(s.checks.map(id => getEx(id)?.name).filter(Boolean).join(', '))}</div>` : ''}${s.note ? `<div class="s" style="color:var(--muted)">📝 ${esc(s.note)}</div>` : ''}</button>`;
       const prev = list[i + 1];
       if (prev && !filtered) { const g = daysBetween(prev.date, s.date); if (g >= md) html += `<div class="break-sep">Pause · ${C.fmtDuration(g)}</div>`; }
     });
@@ -1179,8 +1230,10 @@ function editDay(d, done) {
 // ================================================================ ILLUSTRATIONS
 function showIllustration(e) {
   const sh = sheet(`<div class="sheet-head"><h2>${esc(e.name)}</h2><button class="icon-btn" data-close>${ICON.x}</button></div>
-    ${illuHTML(e, 'hero')}${e.cue ? `<p class="cue" style="margin-top:10px">${esc(e.cue)}</p>` : ''}
+    ${illuHTML(e, 'hero')}${e.dose ? `<p class="ck-dose" style="margin:10px 0 0;font-size:15px">⏱ ${esc(e.dose)}</p>` : ''}${e.cue ? `<p class="cue" style="margin-top:10px">${esc(e.cue)}</p>` : ''}
+    ${e.type === 'group' ? `<div class="menu" style="margin-top:8px">${checkItems(e).map(x => `<button data-sub="${x.id}"><b>${esc(x.name)}</b><br><small class="muted">⏱ ${esc(x.dose || '')}</small></button>`).join('')}</div>` : ''}
     <button class="btn block" id="si-change" style="margin-top:12px">Changer l'illustration…</button>`);
+  $$('[data-sub]', sh).forEach(b => b.onclick = () => showIllustration(getEx(b.dataset.sub)));
   $('#si-change', sh).onclick = () => { sh.close(); pickIllustration(e, img => { e.img = img; commit(); render(); }); };
 }
 
