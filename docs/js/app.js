@@ -8,7 +8,7 @@ import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 
-export const APP_VERSION = '1.12.0';
+export const APP_VERSION = '1.13.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -319,7 +319,7 @@ function editExercise(e, { onSaved = null, free = false } = {}) {
       <div class="field" data-time><label>Durée min (s)</label><input id="f-tmin" type="number" inputmode="numeric" value="${d.timeMin}"></div>
       <div class="field" data-time><label>Durée max (s)</label><input id="f-tmax" type="number" inputmode="numeric" value="${d.timeMax}"></div>
     </div>
-    <div class="field" data-inc><label>Incrément de charge (kg)</label><input id="f-inc" type="number" inputmode="decimal" step="0.25" value="${d.inc}"><div class="hint">Quand tu atteins les reps max sur une série, la charge suivante = charge + incrément${d.equip === 'db2' ? ' (par haltère)' : ''}.</div></div>
+    <div class="field" data-inc><label>Incrément de charge (kg)</label><input id="f-inc" type="number" inputmode="decimal" step="0.25" value="${d.inc}"><div class="hint">Quand tu réussis 12 reps sur une série, la séance suivante propose +1 ou 2 kg (selon le matériel) et le nombre de reps que ta force visée permet.</div></div>
     <label class="check-row"><input type="checkbox" id="f-side" ${d.side ? 'checked' : ''}> Par côté (un bras / une jambe à la fois : séries comptées ×2)</label>
     <label class="check-row"><input type="checkbox" id="f-ss" ${d.superset ? 'checked' : ''}> Superset : enchaîner avec l'exercice suivant du jour, puis repos (gain de temps)</label>
     <div class="field"><label>Catégorie</label><select id="f-cat">${CATEGORIES.map(c => `<option ${c === d.category ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
@@ -417,7 +417,7 @@ function openExercise(id) {
     ${e.active ? configCard(e) : ''}
     ${e.active ? `<div class="card" style="margin-top:12px"><div class="row"><b class="grow">Prochaine séance</b><button class="btn sm" id="d-plan">Modifier</button></div>
       <div style="margin-top:6px;font-size:16px;font-weight:700;color:var(--accent)">${esc(sg.sets.map(s => C.fmtSet(e, s)).join(' · ') || '—')}</div>
-      <div class="sub" style="margin:4px 0 0">${sg.manual ? 'Objectif marqué manuellement.' + (sg.note ? ' ' + esc(sg.note) : '') : esc(sg.note || `Double progression : vise ${e.type === 'time' ? e.timeMax + ' s' : e.repMax + ' reps'} sur chaque série, puis la charge monte de ${fmt(C.incOf(e))} kg${e.equip === 'db2' ? ' par haltère' : ''}.`)}</div></div>` : ''}
+      <div class="sub" style="margin:4px 0 0">${sg.manual ? 'Objectif marqué manuellement.' + (sg.note ? ' ' + esc(sg.note) : '') : esc(sg.note || `${e.type === 'time' ? 'Vise ' + e.timeMax + ' s sur chaque série.' : 'Quand tu réussis 12 reps à une charge, la séance suivante ajoute 1 ou 2 kg et vise les reps que ta force permet (1RM estimé +1 %).'}`)}</div></div>` : ''}
     <h2>Séances (${st.n})</h2>
     <div class="legend" style="margin:-4px 0 6px"><span><span class="pr-badge">PR</span> record absolu</span><span><span class="rep-badge">R</span> record de reprise (meilleur depuis la dernière pause)</span></div>
     <table><thead><tr><th>Date</th><th>Séries</th><th class="r">${unit}</th></tr></thead><tbody>
@@ -454,7 +454,7 @@ function configCard(e) {
     <div class="cfg-days">${DAYS_().map(d => `<button class="chip ${e.days.includes(d.id) ? 'on' : ''}" data-cday="${d.id}">${esc(d.short)}</button>`).join('')}</div>
     <div class="cfg-row">${e.days.length ? e.days.map(d => step('sets:' + d, setsOn(e, d), `Séries ${esc(dayOf(d)?.short || d)}`)).join('') : step('sets', e.sets, 'Séries')}</div>
     <div class="cfg-row">${time ? step('timeMin', e.timeMin, 'Durée min (s)') + step('timeMax', e.timeMax, 'max') : step('repMin', e.repMin, 'Reps min') + step('repMax', e.repMax, 'max')}</div>
-    <div class="hint">${time ? 'Quand tu tiens la durée max, l\'objectif augmente.' : 'Quand tu atteins les reps max sur une série, la charge suivante est proposée.'}</div></div>`;
+    <div class="hint">${time ? 'Quand tu tiens la durée max, l\'objectif augmente.' : 'Quand tu réussis 12 reps sur une série, la charge monte de 1 ou 2 kg la séance suivante.'}</div></div>`;
 }
 function bindConfig(sh, e) {
   const host = $('.cfg', sh); if (!host) return;
@@ -681,7 +681,7 @@ function checkCard(en, e, ei, live) {
   en.checks = en.checks || {};
   const items = checkItems(e), n = items.filter(x => en.checks[x.id]).length, done = n === items.length && items.length > 0;
   const group = e.type === 'group', open = group ? openGroups.has(e.id) : true;
-  if (live && done && !openDone.has(en.ex)) return `<div class="log-ex done folded" data-ei="${ei}" data-kind="chk"><div class="lx-head"><span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span><button class="illu-btn" data-illu>${illuHTML(e, 'thumb')}</button><div class="lx-t" data-fold><h3>${esc(e.name)}</h3></div><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div><div class="lx-sum">✓ ${n}/${items.length} faits</div></div>`;
+  if (done && !openDone.has(en.ex)) return `<div class="log-ex done folded" data-ei="${ei}" data-kind="chk"><div class="lx-head"><span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span><button class="illu-btn" data-illu>${illuHTML(e, 'thumb')}</button><div class="lx-t" data-fold><h3>${esc(e.name)}</h3></div><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div><div class="lx-sum">✓ Effectué · ${n}/${items.length}</div></div>`;
   return `<div class="log-ex ck-card ${done ? 'done' : ''} ${group ? 'grp' : ''}" data-ei="${ei}" data-kind="chk">
     <div class="lx-head">${live ? `<span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>` : ''}<button class="illu-btn" data-illu>${illuHTML(e, 'thumb')}</button>
       <div class="lx-t" data-gopen><h3>${esc(e.name)}</h3><div class="mus">${group ? `${n}/${items.length} faits · ${esc(e.dose || '')}` : esc(e.dose || MZ.musclesText(e))}</div></div>
@@ -711,7 +711,7 @@ function sessionEditor(host, d, onChange, opts = {}) {
       <div class="lx-t" data-fold><h3>${esc(e.name)}${nx ? ' <span class="tag ss">⇄</span>' : ''}</h3>${MZ.musclesText(e) ? `<div class="mus">${esc(MZ.musclesText(e))}</div>` : ''}</div>
       <span class="lx-sp">${sparkline(prev.slice(-3).map(h => h.perf), { w: 44, h: 18 })}</span><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>`;
     if (folded) return `<div class="log-ex done folded" data-ei="${ei}">${head}<div class="lx-sum">✓ ${esc(C.fmtEntry(e, { sets: en.sets }))}</div></div>`;
-    const info = [last ? `Dernière ${fdate(last.date).replace(/ \d{4}$/, '')} : ${C.fmtEntry(e, last.entry)}` : 'Première fois : note ta charge de départ', sg.note ? `${sg.manual ? '✎' : '▲'} ${sg.note}` : ''].filter(Boolean).join(' · ');
+    const info = [last ? `Dernière ${fdate(last.date).replace(/ \d{4}$/, '')} : ${C.fmtEntry(e, last.entry)}` : 'Première fois : note ta charge de départ', last && sg.note ? `${sg.manual ? '✎' : '▲'} ${sg.note}` : ''].filter(Boolean).join(' · ');
     return `<div class="log-ex ${done ? 'done' : ''}" data-ei="${ei}">${head}
       ${nx ? `<div class="lx-ss">⇄ enchaîne sans repos avec « ${esc(nx.name)} »</div>` : ''}
       <div class="lx-info" data-info>${esc(info)}</div>
@@ -739,9 +739,10 @@ function sessionEditor(host, d, onChange, opts = {}) {
         const id = r.dataset.cid; en.checks[id] = !en.checks[id]; if (!en.checks[id]) delete en.checks[id];
         const items = checkItems(e), all = items.every(x => en.checks[x.id]), was = !!en.doneAt;
         if (live) { if (all && !en.doneAt) en.doneAt = Date.now(); if (!all) delete en.doneAt; }
-        if (en.checks[id] && navigator.vibrate) navigator.vibrate(15);
+        if (all && !was) { openDone.delete(en.ex); openGroups.delete(en.ex); } // complet → on referme
+        if (en.checks[id] && navigator.vibrate) navigator.vibrate(all && !was ? [20, 60, 20] : 15);
         onChange(); redraw();
-        if (live && all && !was) { openDone.delete(en.ex); onDone && onDone(en); }
+        if (live && all && !was) { toast(`✓ ${e.name.replace(/ \(.*\)$/, '')} : effectué`); onDone && onDone(en); }
       }; });
       return;
     }
@@ -1442,12 +1443,15 @@ function kpKey(v) {
   kpShow();
 }
 // tous les champs numériques passent par le pavé (pointerdown : avant que le clavier système ne s'ouvre)
-document.addEventListener('pointerdown', ev => {
+// Toucher un champ chiffré : lecture seule tout de suite (pas de clavier du téléphone) ; le pavé ne s'ouvre qu'au
+// « clic », c.-à-d. un appui sans glisser. Faire défiler la page en partant d'un champ n'ouvre plus rien.
+document.addEventListener('pointerdown', ev => { const inp = ev.target.closest?.('input[type=number]'); if (inp) inp.readOnly = true; }, true);
+document.addEventListener('click', ev => {
   const inp = ev.target.closest?.('input[type=number]');
   if (inp) { ev.preventDefault(); kpOpen(inp); return; }
   if (kp.open && !ev.target.closest('#keypad')) kpClose();
 }, true);
-document.addEventListener('focusin', ev => { if (ev.target.matches?.('input[type=number]') && kp.inp !== ev.target) { ev.target.blur(); kpOpen(ev.target); } });
+document.addEventListener('focusin', ev => { if (ev.target.matches?.('input[type=number]')) { ev.target.readOnly = true; if (kp.inp !== ev.target) ev.target.blur(); } });
 
 
 // ================================================================ boot

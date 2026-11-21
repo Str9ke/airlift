@@ -158,6 +158,14 @@ export const fmtDuration = d => d >= 365 ? `${fmt(d / 365, 1)} an${d >= 730 ? 's
 
 // ---------------------------------------------------------------- progression (double progression + incréments réels)
 export function incOf(e) { return e.inc ?? EQUIP[e.equip]?.inc ?? 1; }
+export const UP_REPS = 12;   // seuil : 12 répétitions réussies à une charge → on monte
+const GAIN = 0.01;           // progression de force visée d'une séance à l'autre (1RM estimé +1 %)
+/** Saut de charge : 1 ou 2 kg (2 kg au-delà de 40 kg ; haltères : incrément réel du matériel). */
+function jumpOf(e, w) {
+  const inc = incOf(e);
+  if (e.equip === 'db2' || e.equip === 'db2t' || e.equip === 'db1') return inc || 1;
+  return Math.max(inc || 1, w >= 40 ? 2 : 1);
+}
 
 /** Suggestion pour la prochaine séance, set par set. */
 export function suggest(e, day = null) {
@@ -189,22 +197,21 @@ export function suggest(e, day = null) {
       continue;
     }
     const w = s.w ?? 0, r = s.r ?? e.repMin;
-    if (r >= e.repMax) {
+    if (r >= UP_REPS) {
+      // 12 reps réussies à cette charge → +1 ou 2 kg ; reps = ce que permet la force visée (1RM estimé +1 %)
       up = true;
-      if (e.type === 'assisted') {
-        const nw = Math.max(0, round(w - inc, 0.5));
-        out.push({ w: nw, r: e.repMin, up: true });
-      } else {
-        const nw = round(w + inc, 0.5);
-        const e1 = epley(effLoad(e, { w }, last.date), r);
-        const eff = effLoad(e, { w: nw }, last.date);
-        const est = Math.floor(30 * (e1 / eff - 1));
-        out.push({ w: nw, r: Math.max(e.repMin, Math.min(e.repMax - 1, est)), up: true });
-      }
+      const step = jumpOf(e, w);
+      const nw = e.type === 'assisted' ? Math.max(0, round(w - step, 0.5)) : round(w + step, 0.5);
+      const e1 = epley(effLoad(e, { w }, last.date), Math.min(r, 15)) * (1 + GAIN);
+      const eff = effLoad(e, { w: nw }, last.date);
+      const est = eff > 0 ? Math.floor(30 * (e1 / eff - 1)) : UP_REPS - 2;
+      out.push({ w: nw, r: Math.max(6, Math.min(UP_REPS - 1, est)), up: true, step });
     } else {
       out.push({ w, r: r + 1 });
     }
   }
+  const st0 = out.find(x => x.up && x.step);
+  if (st0 && e.type !== 'load_time') return { sets: out.map(({ step, ...x }) => x), note: `${UP_REPS} reps réussies → ${e.type === 'assisted' ? 'retire' : 'ajoute'} ${fmt(st0.step)} kg${e.equip === 'db2' ? ' par haltère' : ''} et vise ${st0.r} reps (force estimée +${GAIN * 100} %).` };
   const note = up && e.type === 'load_time' ? `Durée max atteinte (${e.timeMax} s) → ajoute ${fmt(inc)} kg et repars à ${e.timeMin} s.` : up ? `Objectif atteint (${e.repMax} reps) → ${e.type === 'assisted' ? 'retire' : 'ajoute'} ${fmt(inc)} kg${e.equip === 'db2' ? ' par haltère (+' + fmt(inc * 2) + ' kg au total)' : e.equip === 'db2t' ? ' au total (+' + fmt(inc / 2) + ' kg par haltère)' : ''} sur les séries concernées.` : '';
   return { sets: out, note };
 }

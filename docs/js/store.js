@@ -151,6 +151,17 @@ MIGRATIONS.push({ id: '2026-11-21-mobilite-hanche', run(st) {
   }
 } });
 
+MIGRATIONS.push({ id: '2026-11-22-boardoff-assis', run(st) {
+  const byId = new Map(st.exercises.map(e => [e.id, e]));
+  const P = new Map(EXTRA.map(p => [p.id, p]));
+  const g = byId.get('mobilite-hanche'); if (g) Object.assign(g, { items: P.get('mobilite-hanche').items, dose: P.get('mobilite-hanche').dose });
+  const b = byId.get('mh-boardoff-assis');
+  if (b) { const p = P.get('mh-boardoff-assis'); Object.assign(b, { category: p.category, type: p.type, sets: p.sets, repMin: p.repMin, repMax: p.repMax, cue: p.cue }); delete b.dose; }
+  const t = (st.templates || []).find(x => x.ex.includes('mobilite-hanche'));
+  if (t) t.ex = [...t.ex.filter(id => id !== 'mh-boardoff-assis'), 'mh-boardoff-assis']; // en tout dernier
+  if (st.draft) st.draft.entries.forEach(en => { if (en.ex === 'mh-boardoff-assis' && !en.sets?.length) { en.sets = [{}, {}]; delete en.checks; } });
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'custom-memo-2026-11-20', run(st) {
