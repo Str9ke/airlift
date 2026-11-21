@@ -81,7 +81,7 @@ export const EX_MUSCLES = {
   'arrache-epaule-jete': M('quadri fessiers trap', 'ischios delt_a lombaires'),
   'chaise-quadriceps': M('quadri'), 'swing-kettlebell': M('fessiers ischios', 'lombaires'),
   'extension-dos': M('lombaires', 'fessiers ischios'),
-  'mollets-pointe': M('mollets'),
+  'mollets-pointe': M('mollets'), 'box-jump': M('quadri fessiers', 'mollets ischios'),
   'abdominaux': M('abdos'), 'crunch-haltere': M('abdos'), 'crunch-jambes': M('abdos', 'psoas'), 'reverse-crunch': M('abdos', 'psoas'),
   'releve-jambes-banc-45': M('abdos psoas'), 'obliques-inclines': M('obliques', 'abdos'),
   'gainage': M('abdos', 'obliques'), 'plank-coudes': M('abdos', 'obliques'), 'plank-sous-coudes': M('abdos', 'obliques'),

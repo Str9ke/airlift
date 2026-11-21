@@ -79,6 +79,8 @@ export const CATEGORIES = ['Board-off', 'Mobilité', 'Abdos', 'Dos', 'Pecs', 'É
 
 // Proposés hors programme (anciens exercices), à activer d'un tap.
 export const EXTRA = [
+  { id: 'box-jump', name: 'Box jump', category: 'Jambes', equip: 'bodyweight', type: 'bw_load', days: [], sets: 1, repMin: 10, repMax: 10, fixedReps: true,
+    cue: 'Explosif : hanches en arrière + élan des bras, saute sur la box, réception douce en squat partiel, genoux dans l\'axe · redescends en marchant (pas en sautant) · chaque saut de qualité, pas de fatigue · lest en kg (0 = sans)' },
   // ---- étirements rapides de fin de séance
   { id: 'st-piriforme', name: 'Piriforme', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Assis ou couché, cheville posée sur le genou opposé (figure 4) · penche-toi en avant dos long ou tire la jambe vers toi' },
   { id: 'st-ischios', name: 'Ischio-jambiers', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Assis, jambe tendue, bascule le bassin en avant dos long (pas en arrondissant le dos)' },

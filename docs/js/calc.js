@@ -197,6 +197,7 @@ export function suggest(e, day = null) {
       continue;
     }
     const w = s.w ?? 0, r = s.r ?? e.repMin;
+    if (e.fixedReps) { out.push({ w, r: e.repMax }); continue; } // explosif : qualité, pas de course aux reps
     if (r >= UP_REPS) {
       // 12 reps réussies à cette charge → +1 ou 2 kg ; reps = ce que permet la force visée (1RM estimé +1 %)
       up = true;

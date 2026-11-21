@@ -15,6 +15,7 @@ export const GEAR_SVG = {
   bonnet: S('<path d="M9 27q0-17 11-17t11 17z" fill="#1f2937"/><rect x="8" y="25" width="24" height="7" rx="3" fill="#374151"/><circle cx="20" cy="9" r="3.5" fill="#f97316"/>'),
   collant: S('<path d="M12 6h16l-1 28h-5l-2-18-2 18h-5z" fill="#111827"/><path d="M12 9h16" stroke="#475569" stroke-width="2"/>'),
   cardio: S('<rect x="4" y="17" width="32" height="6" rx="3" fill="#1f2937"/><path d="M20 28s-7-4.5-7-9a3.5 3.5 0 0 1 7-1 3.5 3.5 0 0 1 7 1c0 4.5-7 9-7 9z" fill="#ef4444"/>'),
+  gantstissu: S('<path d="M12 34V18l-2-6a2 2 0 0 1 4-1l2 5V7a2 2 0 0 1 4 0v8V5a2 2 0 0 1 4 0v10V7a2 2 0 0 1 4 0v14l1 13z" fill="#64748b"/><path d="M12 30h16M12 33h16" stroke="#94a3b8" stroke-width="1.5"/><path d="M15 22h10M15 26h10" stroke="#475569" stroke-width="1" stroke-dasharray="1.5 1.5"/>', '#ede9fe'),
   thermos: S('<rect x="14" y="10" width="12" height="24" rx="4" fill="#64748b"/><rect x="15" y="5" width="10" height="6" rx="2" fill="#1f2937"/><path d="M14 16h12" stroke="#94a3b8" stroke-width="2"/><path d="M18 3q1 2 0 3M22 3q1 2 0 3" stroke="#94a3b8" stroke-width="1.4" fill="none"/>', '#fef3c7'),
 };
 
@@ -44,7 +45,7 @@ export const PACKS = {
         ['tube', 'Le tube de pompe', 'tube'], ['harnais', 'Harnais', 'harnais'], ['leash', 'Leash', 'leash'], ['impact', 'Impact veste', '🦺'],
       ] },
       { title: 'Tenue', items: [
-        ['combi', 'Combinaison', 'combinaison'], ['boots', 'Boots ou chaussons', '🥾'], ['gants', 'Gants', '🧤'], ['scratch', 'Scratch cheville', 'scratch'],
+        ['combi', 'Combinaison', 'combinaison'], ['boots', 'Boots ou chaussons', '🥾'], ['gants', 'Gants', '🧤'], ['gants-tissu', 'Gants en tissu (froid)', 'gantstissu'], ['scratch', 'Scratch cheville', 'scratch'],
         ['earplugs', 'Earplugs', 'earplugs'], ['coupevent', 'Veste coupe-vent', '🧥'],
       ] },
       { title: 'Ravito & divers', items: [

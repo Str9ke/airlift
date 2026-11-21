@@ -9,7 +9,7 @@ import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 import { PACKS, gearIcon } from './gear.js';
 
-export const APP_VERSION = '1.14.0';
+export const APP_VERSION = '1.15.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -789,7 +789,7 @@ function sessionEditor(host, d, onChange, opts = {}) {
       ${en.sets.map((s, si) => { const p = { ...(sg.sets[si] || sg.sets.at(-1) || {}), ...(en.target || {}) }; return `<div class="set-row ${time || repsOnly ? 'time' : ''}" data-si="${si}"><span class="n">${si + 1}</span>
         ${time ? `<input data-k="t" type="number" inputmode="numeric" value="${s.t ?? ''}" placeholder="${p.t ?? e.timeMin}">`
         : repsOnly ? `<input data-k="r" type="number" inputmode="numeric" value="${s.r ?? ''}" placeholder="${p.r ?? e.repMin}">`
-        : `<input data-k="w" type="number" inputmode="decimal" step="0.25" value="${s.w ?? ''}" placeholder="${p.w ?? ''}"><input data-k="${k2}" type="number" inputmode="numeric" value="${s[k2] ?? ''}" placeholder="${p[k2] ?? (k2 === 't' ? e.timeMin : e.repMin)}">`}
+        : `<input data-k="w" type="number" inputmode="decimal" step="0.25" value="${s.w ?? ''}" placeholder="${p.w ?? (e.type === 'bw_load' ? 0 : '')}"><input data-k="${k2}" type="number" inputmode="numeric" value="${s[k2] ?? ''}" placeholder="${p[k2] ?? (k2 === 't' ? e.timeMin : e.repMin)}">`}
         <button class="chk ${s.done ? 'on' : ''}" data-chk aria-label="Série faite">${ICON.check}</button></div>${e.setNotes?.[si] ? `<div class="set-note">↗ ${esc(e.setNotes[si])}</div>` : ''}`; }).join('')}
       <div class="lx-foot"><button class="lnk" data-addset>+ série</button>${en.sets.length > 1 ? '<button class="lnk" data-delset>− série</button>' : ''}<span class="grow"></span><button class="lnk" data-plan>prochaine fois…</button></div>
     </div>`;
