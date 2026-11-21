@@ -2,13 +2,14 @@ import * as store from './store.js';
 import { S, commit, uid, ex as getEx, normalizeExercise, dayOf } from './store.js';
 import * as C from './calc.js';
 import { fmt, today, toD, daysBetween } from './calc.js';
-import { EQUIP, TYPES, CATEGORIES, WEEKDAYS } from './program.js';
+import { EQUIP, TYPES, CATEGORIES, WEEKDAYS, STRETCHES } from './program.js';
 import { lineChart, sparkline, fdate } from './charts.js';
 import { illuHTML, illuOf, shrinkPhoto, loadCatalog, catUrl } from './media.js';
 import * as sync from './sync.js';
 import * as MZ from './muscles.js';
+import { PACKS, gearIcon } from './gear.js';
 
-export const APP_VERSION = '1.13.0';
+export const APP_VERSION = '1.14.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -163,6 +164,7 @@ function renderProg(v) {
       <div class="sub" style="margin:8px 0 0">${ongoing ? `Pause en cours : ${C.fmtDuration(ongoing.days)} depuis la dernière séance — reprise progressive conseillée.` : `${cl.rows.length} exercices du programme ont un historique. Il te reste <b>${fmt(100 - (cl.level || 100), 0)} %</b> à reconquérir en moyenne.`}</div>
     </div>
     ${dr ? `<div class="card live-banner"><div class="row"><div class="grow"><b>Séance en cours</b><div class="sub" style="margin:2px 0 0">${esc(dayOf(dr.day)?.label || 'Séance libre')} · <span data-clock="${dr.startedAt || ''}">${clock(dr.startedAt)}</span></div></div><button class="btn sm" id="dr-del">Supprimer</button><button class="btn sm primary" id="dr-go">Reprendre</button></div></div>` : ''}
+    <div class="go-row">${Object.entries(PACKS).map(([k, pk]) => { const n = packCount(k); return `<button class="go-btn" data-pack="${k}"><span class="go-e">${pk.emoji}</span><span class="grow"><b>${pk.title}</b><small>${n.done ? `${n.done}/${n.total} pris` : `${n.total} affaires`}</small></span><span class="muted">›</span></button>`; }).join('')}</div>
     <div class="chips" style="margin-top:12px">
       <button class="chip ${ui.day === 'all' ? 'on' : ''}" data-day="all">Tous (${active.length})</button>
       ${DAYS_().map(d => `<button class="chip ${ui.day === d.id ? 'on' : ''}" data-day="${d.id}">${esc(d.label)}</button>`).join('')}
@@ -186,6 +188,7 @@ function renderProg(v) {
   $('#toggle-arch').onclick = () => { ui.showArch = !ui.showArch; render(); };
   const af = $('#arch-filter'); if (af) af.oninput = () => { ui.archFilter = af.value; const pos = af.selectionStart; render(); const n = $('#arch-filter'); n.focus(); n.setSelectionRange(pos, pos); };
   $('#fab-add').onclick = () => editExercise(null);
+  $$('[data-pack]', v).forEach(b => b.onclick = () => openPack(b.dataset.pack));
   $('#start-day').onclick = () => startSession(ui.day === 'all' ? null : ui.day);
   if (dr) { $('#dr-go').onclick = () => setTab('log'); $('#dr-del').onclick = () => deleteDraft(); }
   bindRows(v);
@@ -231,6 +234,40 @@ function addToDay(day) {
   };
   $('#ad-q', sh).oninput = draw; draw();
   $('#ad-new', sh).onclick = () => { sh.close(); editExercise(null); };
+}
+
+// ---------------------------------------------------------------- Go Run / Go Kite : checklists des affaires à prendre
+const packState = k => { const P = S().packs || (S().packs = {}); return P[k] || (P[k] = { done: {}, extra: [] }); };
+function packItems(k) { return [...PACKS[k].groups.flatMap(g => g.items.map(([id]) => id)), ...packState(k).extra.map(x => x.id)]; }
+function packCount(k) { const st = packState(k), all = packItems(k); return { total: all.length, done: all.filter(id => st.done[id]).length }; }
+function openPack(k) {
+  const pk = PACKS[k], st = packState(k);
+  const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-close>${ICON.back}</button><h2>${pk.emoji} ${pk.title}</h2></div>
+    <div class="pk-prog"><div class="pk-bar"><i></i></div><span id="pk-n"></span></div>
+    <div id="pk-body"></div>
+    <div class="field" style="margin-top:12px"><label>Ajouter quelque chose</label><div class="row"><input id="pk-new" placeholder="ex. crème solaire"><button class="btn sm primary" id="pk-add">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.4"')}</button></div></div>
+    <button class="btn block" id="pk-reset" style="margin:8px 0 12px">Tout décocher (nouveau départ)</button>`, { full: true });
+  const row = (id, label, icon, extra) => `<button class="pk-row ${st.done[id] ? 'on' : ''}" data-id="${esc(id)}">${gearIcon(icon)}<span class="grow">${esc(label)}</span>${extra ? `<span class="pk-del" data-del="${esc(id)}" aria-label="Supprimer">${ICON.x}</span>` : ''}<span class="pk-chk">${ICON.check}</span></button>`;
+  const draw = () => {
+    $('#pk-body', sh).innerHTML = pk.groups.map(g => `<h3 class="pick-h">${esc(g.title)}</h3>${g.items.map(([id, l, i]) => row(id, l, i)).join('')}`).join('')
+      + (st.extra.length ? `<h3 class="pick-h">Ajouté par toi</h3>${st.extra.map(x => row(x.id, x.label, '➕', true)).join('')}` : '');
+    const n = packCount(k);
+    $('#pk-n', sh).textContent = n.done === n.total ? `Tout est prêt ✓ (${n.total})` : `${n.done}/${n.total} pris`;
+    $('.pk-bar i', sh).style.width = `${n.total ? n.done / n.total * 100 : 0}%`;
+    $$('.pk-row', sh).forEach(b => b.onclick = ev => {
+      const del = ev.target.closest('[data-del]');
+      if (del) { st.extra = st.extra.filter(x => x.id !== del.dataset.del); delete st.done[del.dataset.del]; commit(); draw(); return; }
+      const id = b.dataset.id; if (st.done[id]) delete st.done[id]; else { st.done[id] = true; if (navigator.vibrate) navigator.vibrate(12); }
+      commit(); draw();
+      if (packCount(k).done === packCount(k).total) toast(`${pk.title} : tout est prêt, bonne session ! ${pk.emoji}`);
+    });
+  };
+  draw();
+  const add = () => { const v = $('#pk-new', sh).value.trim(); if (!v) return; st.extra.push({ id: 'x' + uid(), label: v }); $('#pk-new', sh).value = ''; commit(); draw(); };
+  $('#pk-add', sh).onclick = add;
+  $('#pk-new', sh).onkeydown = ev => { if (ev.key === 'Enter') add(); };
+  $('#pk-reset', sh).onclick = () => { st.done = {}; commit(); draw(); toast('Liste remise à zéro'); };
+  $$('[data-close]', sh).forEach(b => b.addEventListener('click', () => render()));
 }
 
 // ---------------------------------------------------------------- records en direct
@@ -594,7 +631,40 @@ function renderLog(v) {
   $('#l-menu', v).onclick = () => sessionMenu(d, name);
   $('#l-note', v).oninput = ev => { d.note = ev.target.value; saveDraft(d); };
   $('#l-add', v).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push(isCheck(e) ? { ex: id, checks: {}, sets: [] } : { ex: id, sets: Array.from({ length: e.sets || 3 }, () => ({})) }); saveDraft(d); render(); setTimeout(() => $$('.log-ex').at(-1)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60); }, d.entries.map(en => en.ex));
-  $('#l-finish', v).onclick = () => finishSession(d);
+  $('#l-finish', v).onclick = () => finishFlow(d);
+}
+
+// Terminer : on propose des étirements avant de clôturer
+function finishFlow(d) {
+  if (!cleanEntries(d).length && !d.entries.some(en => en.checks && Object.values(en.checks).some(Boolean))) { toast('Aucune série remplie'); return; }
+  const q = sheet(`<h2 style="margin-top:4px">Des étirements avant de clôturer ?</h2>
+    <p class="sub">Une petite liste rapide (≈ 30 s par étirement) : tu coches ceux que tu fais.</p>
+    <div class="grid2" style="margin-top:14px"><button class="btn" data-no>Non, clôturer</button><button class="btn primary" data-yes>🧘 Oui, étirements</button></div>`);
+  $('[data-no]', q).onclick = () => { q.close(); finishSession(d); };
+  $('[data-yes]', q).onclick = () => { q.close(); stretchSheet(d); };
+}
+function stretchSheet(d) {
+  d.stretch = d.stretch || {};
+  const list = STRETCHES.map(getEx).filter(Boolean);
+  const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-close>${ICON.back}</button><h2>Étirements</h2></div>
+    <p class="sub" id="sx-n"></p><div class="ck-list" id="sx-list"></div>
+    <div class="grid2 sheet-foot"><button class="btn" data-close>Retour à la séance</button><button class="btn primary" id="sx-go">Clôturer la séance</button></div>`, { full: true });
+  const draw = () => {
+    const n = list.filter(x => d.stretch[x.id]).length;
+    $('#sx-n', sh).textContent = `${n}/${list.length} faits · tiens chaque étirement sans à-coup, respire, relâche à l'expiration.`;
+    $('#sx-list', sh).innerHTML = list.map(x => `<div class="ck-row ${d.stretch[x.id] ? 'on' : ''}" data-cid="${x.id}">
+      <button class="chk ${d.stretch[x.id] ? 'on' : ''}" data-ck aria-label="Fait">${ICON.check}</button>
+      <button class="illu-btn" data-cillu="${x.id}">${illuHTML(x, 'thumb')}</button>
+      <div class="ck-t"><b>${esc(x.name)}</b><div class="ck-dose">⏱ ${esc(x.dose || '')}</div><div class="ck-cue">${esc(x.cue || '')}</div></div></div>`).join('');
+    $$('.ck-row', sh).forEach(r => {
+      $('[data-ck]', r).onclick = () => { const id = r.dataset.cid; if (d.stretch[id]) delete d.stretch[id]; else { d.stretch[id] = true; if (navigator.vibrate) navigator.vibrate(15); } saveDraft(d); draw(); };
+      $('[data-cillu]', r).onclick = () => showIllustration(getEx(r.dataset.cid));
+      $('.ck-cue', r).onclick = ev => ev.currentTarget.classList.toggle('full');
+    });
+    $('#sx-go', sh).textContent = n ? `Clôturer · ${n} étirement${n > 1 ? 's' : ''}` : 'Clôturer la séance';
+  };
+  draw();
+  $('#sx-go', sh).onclick = () => { sh.close(); finishSession(d); };
 }
 
 function sessionMenu(d, name) {
@@ -845,7 +915,8 @@ function cleanEntries(d) {
 
 function finishSession(d) {
   const entries = cleanEntries(d);
-  const checks = d.entries.flatMap(en => en.checks ? Object.keys(en.checks).filter(k => en.checks[k]) : []);
+  const checks = [...d.entries.flatMap(en => en.checks ? Object.keys(en.checks).filter(k => en.checks[k]) : []), ...Object.keys(d.stretch || {}).filter(k => d.stretch[k])];
+  const nSt = checks.filter(id => id.startsWith('st-')).length, nMob = checks.length - nSt;
   if (!entries.length && !checks.length) { toast('Aucune série remplie'); return; }
   const before = C.sessionScores().at(-1)?.cum || 0;
   const end = Date.now();
@@ -876,7 +947,8 @@ function finishSession(d) {
       ${tplMsg ? `<div class="sub" style="margin:4px 0">💾 ${esc(tplMsg)}</div>` : ''}
       ${sess.dur ? `<div class="summary-time">⏱ ${fmtMin(sess.dur)} <span class="muted">(${sess.start} → ${sess.end})</span></div>` : ''}
       <div class="sub">Total : ${fmt((sc?.cum ?? before), 0)} pts · ${entries.length} exercices · facteur volume ×${fmt(sc?.vol ?? 1, 2)}</div>
-      ${checks.length ? `<div class="sub">🧘 Mobilité : ${checks.length} exercice${checks.length > 1 ? 's' : ''} coché${checks.length > 1 ? 's' : ''}</div>` : ''}
+      ${nMob ? `<div class="sub">🧘 Mobilité : ${nMob} exercice${nMob > 1 ? 's' : ''} coché${nMob > 1 ? 's' : ''}</div>` : ''}
+      ${nSt ? `<div class="sub">🤸 Étirements : ${nSt}</div>` : ''}
 
       ${prNames.length ? `<p><span class="pr-badge">🏆 RECORD ABSOLU</span> ${prNames.map(esc).join(', ')}</p>` : ''}
       ${segNames.length ? `<p><span class="rep-badge">⚡ RECORD DE REPRISE</span> ${segNames.map(esc).join(', ')}</p>` : ''}
@@ -1067,7 +1139,7 @@ function renderHist(v) {
       const dy = sessDay(s);
       html += `<button class="hist-item" data-id="${s.id}"><div class="row"><span class="d grow">${dy ? dayTag(dy) : ''}${wdShort(s.date)} ${fdate(s.date)}${s.approx ? ' <span class="muted" title="date estimée">≈</span>' : ''}</span>${x ? `<span class="pts ${x.pts > 2 ? 'up' : x.pts < 0 ? 'down' : ''}">${x.pts > 0 ? '+' : ''}${x.pts} pts</span>` : ''}</div>
         <div class="s hm">${s.entries.length} exo${s.entries.length > 1 ? 's' : ''} · ${(n => `${n} série${n > 1 ? 's' : ''}`)(s.entries.reduce((a, en) => a + en.sets.length, 0))}${s.dur ? ` · ⏱ ${fmtMin(s.dur)}` : ''}${s.start ? ` <span class="muted">(${s.start}${s.end ? '→' + s.end : ''})</span>` : ''}</div>
-        <div class="s">${names}</div>${s.checks?.length ? `<div class="s">🧘 mobilité : ${esc(s.checks.map(id => getEx(id)?.name).filter(Boolean).join(', '))}</div>` : ''}${s.note ? `<div class="s" style="color:var(--muted)">📝 ${esc(s.note)}</div>` : ''}</button>`;
+        <div class="s">${names}</div>${s.checks?.some(id => !id.startsWith('st-')) ? `<div class="s">🧘 mobilité : ${esc(s.checks.filter(id => !id.startsWith('st-')).map(id => getEx(id)?.name).filter(Boolean).join(', '))}</div>` : ''}${s.checks?.some(id => id.startsWith('st-')) ? `<div class="s">🤸 étirements : ${esc(s.checks.filter(id => id.startsWith('st-')).map(id => getEx(id)?.name).filter(Boolean).join(', '))}</div>` : ''}${s.note ? `<div class="s" style="color:var(--muted)">📝 ${esc(s.note)}</div>` : ''}</button>`;
       const prev = list[i + 1];
       if (prev && !filtered) { const g = daysBetween(prev.date, s.date); if (g >= md) html += `<div class="break-sep">Pause · ${C.fmtDuration(g)}</div>`; }
     });

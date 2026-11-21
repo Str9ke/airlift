@@ -451,3 +451,23 @@ body.in-session .timer-bar b { font-size: 20px; }
 .set-note { font-size: 11.5px; color: var(--gold); font-weight: 600; margin: -2px 0 5px 28px; line-height: 1.3; }
 .te-ck { font-size: 12px; color: var(--accent); font-weight: 600; }
 .ck-cue { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; } .ck-cue.full { display: block; }
+
+/* ---------- Go Run / Go Kite */
+.go-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.go-btn { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); text-align: left; }
+.go-btn .go-e { font-size: 24px; }
+.go-btn b { display: block; font-size: 14.5px; }
+.go-btn small { display: block; font-size: 11.5px; color: var(--text2); }
+.pk-prog { display: flex; align-items: center; gap: 10px; margin: 2px 0 6px; font-size: 13px; color: var(--text2); font-weight: 650; }
+.pk-bar { flex: 1; height: 7px; border-radius: 9px; background: var(--bg2); overflow: hidden; }
+.pk-bar i { display: block; height: 100%; background: var(--good); border-radius: 9px; transition: width .2s; }
+.pk-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 7px 8px; margin-bottom: 5px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); font-size: 14.5px; font-weight: 600; }
+.pk-row .gi { width: 34px; height: 34px; flex: none; border-radius: 9px; }
+.pk-row .ge { width: 34px; height: 34px; flex: none; display: grid; place-items: center; font-size: 22px; border-radius: 9px; background: var(--bg2); }
+.pk-chk { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; color: transparent; flex: none; }
+.pk-chk svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 3; fill: none; }
+.pk-row.on { opacity: .6; }
+.pk-row.on .grow { text-decoration: line-through; }
+.pk-row.on .pk-chk { background: var(--good); border-color: var(--good); color: #06281b; }
+.pk-del { width: 26px; height: 26px; display: grid; place-items: center; color: var(--muted); flex: none; }
+.pk-del svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; }

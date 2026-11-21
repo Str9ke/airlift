@@ -162,6 +162,10 @@ MIGRATIONS.push({ id: '2026-11-22-boardoff-assis', run(st) {
   if (st.draft) st.draft.entries.forEach(en => { if (en.ex === 'mh-boardoff-assis' && !en.sets?.length) { en.sets = [{}, {}]; delete en.checks; } });
 } });
 
+MIGRATIONS.push({ id: '2026-11-22-etirements', run(st) {
+  EXTRA.filter(p => p.id.startsWith('st-')).forEach(p => addIfMissing(st, p, false));
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'custom-memo-2026-11-20', run(st) {
@@ -202,6 +206,7 @@ function migrate(st) {
   st.meta.fixes = [...fx];
   if (st.draft === undefined) st.draft = null;
   if (!Array.isArray(st.templates)) st.templates = [];
+  if (!st.packs || typeof st.packs !== 'object') st.packs = {};
   return st;
 }
 

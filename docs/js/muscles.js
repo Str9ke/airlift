@@ -89,6 +89,8 @@ export const EX_MUSCLES = {
   'mobilite-hanche': M('adducteurs fessiers psoas'), 'mh-deep-squat': M('adducteurs fessiers', 'quadri'), 'mh-ds-coudes': M('adducteurs'),
   'mh-ds-transfert': M('adducteurs fessiers'), 'mh-ds-rotation': M('obliques adducteurs', 'fessiers'), 'mh-90-90': M('fessiers', 'adducteurs'),
   'mh-grenouille': M('adducteurs'), 'mh-pied-table': M('fessiers ischios'), 'mh-boardoff-assis': M('psoas abdos'),
+  // étirements de fin de séance
+  'st-piriforme': M('fessiers'), 'st-ischios': M('ischios'), 'st-quadriceps': M('quadri'), 'st-adducteurs': M('adducteurs'), 'st-psoas': M('psoas'), 'st-carre-lombes': M('lombaires obliques'), 'st-mollets': M('mollets'), 'st-pectoraux': M('pecs delt_a'), 'st-dorsaux': M('dorsaux'), 'st-biceps': M('biceps avbras'), 'st-triceps': M('triceps'),
   // mobilité (hors programme)
   'chat-chameau': M('lombaires abdos'), 'etirement-pike-assis': M('ischios'), 'ischios-pnf': M('ischios'),
   'ecart-actif': M('adducteurs', 'ischios'), 'figure-4-assis': M('fessiers'),

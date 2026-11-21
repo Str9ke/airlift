@@ -73,10 +73,24 @@ export const TYPES = {
   group: 'Bloc d\'exercices',
 };
 
+export const STRETCHES = ['st-piriforme', 'st-ischios', 'st-quadriceps', 'st-adducteurs', 'st-psoas', 'st-carre-lombes', 'st-mollets', 'st-pectoraux', 'st-dorsaux', 'st-biceps', 'st-triceps'];
+
 export const CATEGORIES = ['Board-off', 'Mobilité', 'Abdos', 'Dos', 'Pecs', 'Épaules', 'Biceps', 'Triceps', 'Jambes', 'Cardio', 'Autre'];
 
 // Proposés hors programme (anciens exercices), à activer d'un tap.
 export const EXTRA = [
+  // ---- étirements rapides de fin de séance
+  { id: 'st-piriforme', name: 'Piriforme', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Assis ou couché, cheville posée sur le genou opposé (figure 4) · penche-toi en avant dos long ou tire la jambe vers toi' },
+  { id: 'st-ischios', name: 'Ischio-jambiers', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Assis, jambe tendue, bascule le bassin en avant dos long (pas en arrondissant le dos)' },
+  { id: 'st-quadriceps', name: 'Quadriceps', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Pied arrière sur un banc (ou tenu à la main), genou vers le bas, bassin rentré, fessier serré' },
+  { id: 'st-adducteurs', name: 'Adducteurs', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s', cue: 'Assis plantes de pieds jointes (papillon), dos long · les coudes poussent doucement les genoux vers le sol' },
+  { id: 'st-psoas', name: 'Psoas', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Fente un genou au sol · rentre le bassin (fessier serré) puis avance doucement les hanches · bras du côté du genou au sol vers le haut' },
+  { id: 'st-carre-lombes', name: 'Carré des lombes', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Debout jambes croisées, bras au-dessus de la tête · penche-toi sur le côté, du côté de la jambe avant' },
+  { id: 'st-mollets', name: 'Mollets', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Mains au mur, jambe arrière tendue, talon au sol · puis genou arrière légèrement fléchi pour le soléaire' },
+  { id: 'st-pectoraux', name: 'Pectoraux', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Avant-bras contre un cadre de porte, coude à hauteur d\'épaule · avance doucement la poitrine' },
+  { id: 'st-dorsaux', name: 'Dorsaux', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Main sur un mur ou un montant au-dessus de la tête · recule les hanches et penche le buste sur le côté' },
+  { id: 'st-biceps', name: 'Biceps', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s', cue: 'Mains jointes dans le dos, bras tendus, ouvre la poitrine (ou paume contre un mur, bras tendu, tourne le buste)' },
+  { id: 'st-triceps', name: 'Triceps', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '30 s par côté', cue: 'Main derrière la tête entre les omoplates · l\'autre main tire doucement le coude vers l\'arrière' },
   // ---- mobilité de hanche (bloc à cocher, avant le board-off)
   { id: 'mh-deep-squat', name: 'Deep squat tenu (dos droit)', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '2 × 45-60 s',
     cue: 'Pieds largeur d\'épaules, pointes légèrement ouvertes, talons au sol · descends au plus bas en gardant le dos long (poitrine haute, pas d\'arrondi en bas du dos) · respire calmement, relâche un peu plus à chaque expiration · si les talons décollent : tiens un support devant toi' },
