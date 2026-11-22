@@ -1,4 +1,4 @@
 {
- "version": "1.20.0",
- "notes": "Correction : relevés de jambes suspendu saisi par erreur le 22/11 retiré (faux record), blocs déployables dans la configuration de séance, abduction de hanche debout à la poulie (illustrée) dans la custom 1"
+ "version": "1.21.0",
+ "notes": "Mobilité de hanche : rotation interne assistée au bâton (assis) et rotation interne debout pied sur le dossier, illustrées"
 }

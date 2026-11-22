@@ -250,6 +250,16 @@ MIGRATIONS.push({ id: '2026-11-23-abduction', run(st) {
   }
 } });
 
+MIGRATIONS.push({ id: '2026-11-23-rotation-interne-mobilite', run(st) {
+  ['mh-ir-baton', 'mh-ir-chaise'].forEach(id => { const p = EXTRA.find(x => x.id === id); if (p) addIfMissing(st, p, false); });
+  const g = st.exercises.find(x => x.id === 'mobilite-hanche');
+  if (g && Array.isArray(g.items)) {
+    let after = g.items.includes('mh-grenouille-pied') ? 'mh-grenouille-pied' : 'mh-grenouille';
+    for (const id of ['mh-ir-baton', 'mh-ir-chaise']) { if (!g.items.includes(id)) { const i = g.items.indexOf(after); g.items.splice(i >= 0 ? i + 1 : g.items.length, 0, id); } after = id; }
+    g.dose = `${g.items.length} exercices · ≈ ${Math.round(g.items.length * 1.6)} min`;
+  }
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'hlr-erreur-2026-11-22', run(st) {
