@@ -9,7 +9,7 @@ import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 import { PACKS, gearIcon } from './gear.js';
 
-export const APP_VERSION = '1.16.0';
+export const APP_VERSION = '1.17.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -20,6 +20,8 @@ try { Object.assign(ui, JSON.parse(localStorage.getItem('airlift.ui') || '{}'));
 const saveUi = () => { try { localStorage.setItem('airlift.ui', JSON.stringify({ tab: ui.tab, day: ui.day, statRange: ui.statRange, bodyRange: ui.bodyRange, bodyView: ui.bodyView, mzView: ui.mzView })); } catch (e) { /* */ } };
 
 const ICON = {
+  pause: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.3" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1.3" fill="currentColor"/></svg>',
+  play: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" fill="currentColor"/></svg>',
   grip: '<svg viewBox="0 0 16 16"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></svg>',
   dots: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>',
   check: '<svg viewBox="0 0 24 24"><path d="M5 12.5 10 17 19 7"/></svg>',
@@ -600,10 +602,10 @@ function renderLog(v) {
       <div class="tb-rest"><span class="tb-l">Repos</span><b ${paused ? '' : `data-rest="${d.lastSetAt || ''}" data-goal="${d.restGoal || ''}"`}>${d.lastSetAt ? clock(d.lastSetAt, paused ? d.pausedAt : undefined) : '–'}</b><span class="tb-s">${esc(d.restLabel || 'objectif ' + clock(1, 1 + (S().settings.restSec || 120) * 1000))}</span></div>
       <span class="grow"></span>
       <button class="icon-btn tb-menu" id="l-menu" aria-label="Options de la séance">${ICON.dots}</button>
-      <button class="icon-btn tb-pause ${paused ? 'on' : ''}" id="l-pause" aria-label="${paused ? 'Reprendre' : 'Pause'}">${paused ? '▶' : '❚❚'}</button>
+      <button class="icon-btn tb-pause ${paused ? 'on' : ''}" id="l-pause" aria-label="${paused ? 'Reprendre' : 'Pause'}">${paused ? ICON.play : ICON.pause}</button>
       <button class="btn sm primary" id="l-finish">Terminer</button>
     </div>
-    ${paused ? `<div class="card pause-card"><div class="pause-t">⏸ Séance en pause</div><div class="sub" style="margin:2px 0 10px">depuis ${hhmm(d.pausedAt)} · <span data-since="${d.pausedAt}">${clock(d.pausedAt)}</span> · le chrono et le repos sont arrêtés</div><button class="btn primary block" id="l-resume">▶ Reprendre la séance</button></div>` : ''}
+    ${paused ? `<div class="card pause-card"><div class="pause-t">${ICON.pause} Séance en pause</div><div class="sub" style="margin:2px 0 10px">depuis ${hhmm(d.pausedAt)} · <span data-since="${d.pausedAt}">${clock(d.pausedAt)}</span> · le chrono et le repos sont arrêtés</div><button class="btn primary block" id="l-resume">${ICON.play} Reprendre la séance</button></div>` : ''}
     <div id="l-editor" class="${paused ? 'is-paused' : ''}"></div>
     <button class="btn sm" id="l-add" style="margin:2px 0 10px">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Exercice</button>
     <div class="field"><label>Notes de séance</label><textarea id="l-note" rows="2" placeholder="Sensations, douleurs, conditions…">${esc(d.note)}</textarea></div>`;
@@ -665,7 +667,7 @@ function stretchSheet(d) {
     $('#sx-list', sh).innerHTML = list.map(x => `<div class="ck-row ${d.stretch[x.id] ? 'on' : ''}" data-cid="${x.id}">
       <button class="chk ${d.stretch[x.id] ? 'on' : ''}" data-ck aria-label="Fait">${ICON.check}</button>
       <button class="illu-btn" data-cillu="${x.id}">${illuHTML(x, 'thumb')}</button>
-      <div class="ck-t"><b>${esc(x.name)}</b><div class="ck-dose">⏱ ${esc(x.dose || '')}</div><div class="ck-cue">${esc(x.cue || '')}</div></div></div>`).join('');
+      <div class="ck-t"><b>${esc(x.name)}</b>${x.dose ? `<div class="ck-dose">⏱ ${esc(x.dose)}</div>` : ''}${x.cue ? `<div class="ck-cue">${esc(x.cue)}</div>` : ''}</div></div>`).join('');
     $$('.ck-row', sh).forEach(r => {
       $('[data-ck]', r).onclick = () => { const id = r.dataset.cid; if (d.stretch[id]) delete d.stretch[id]; else { d.stretch[id] = true; if (navigator.vibrate) navigator.vibrate(15); } saveDraft(d); draw(); };
       $('[data-cillu]', r).onclick = () => showIllustration(getEx(r.dataset.cid));
@@ -722,7 +724,7 @@ function tplEdit(t) {
       <div class="te-l2"><div class="te-sets"><button data-d="-1" aria-label="Moins de séries">−</button><b>${setsOf(id)}</b><button data-d="1" aria-label="Plus de séries">+</button><span>séries</span></div>
         ${keys.map(fld).join('<span class="te-x">×</span>')}</div></div>`; }).join('') || '<div class="empty">Aucun exercice.</div>';
     const n = w.ex.reduce((a, id) => a + setsOf(id), 0);
-    $('#te-sum', sh).textContent = `${w.ex.length} exercices · ${n} séries · glisse ⠿ pour changer l'ordre · charge et reps vides = proposition automatique (en gris)`;
+    $('#te-sum', sh).textContent = `${w.ex.length} exercices · ${n} séries · glisse ⠿ pour changer l'ordre · valeurs en doré = calculées sur ta dernière séance (progression comprise) · touche pour fixer une autre valeur`;
     $$('.te-row', list).forEach(r => {
       const id = r.dataset.id;
       $$('.te-sets button', r).forEach(bt => bt.onclick = () => { w.sets[id] = Math.max(1, Math.min(10, setsOf(id) + +bt.dataset.d)); draw(); });
@@ -770,7 +772,7 @@ function checkCard(en, e, ei, live) {
     ${open ? `<div class="ck-list">${items.map(x => `<div class="ck-row ${en.checks[x.id] ? 'on' : ''}" data-cid="${x.id}">
       <button class="chk ${en.checks[x.id] ? 'on' : ''}" data-ck aria-label="Fait">${ICON.check}</button>
       ${group ? `<button class="illu-btn" data-cillu="${x.id}">${illuHTML(x, 'thumb')}</button>` : ''}
-      <div class="ck-t"><b>${esc(group ? x.name : 'Fait')}</b><div class="ck-dose">⏱ ${esc(x.dose || '')}</div><div class="ck-cue">${esc(x.cue || '')}</div></div></div>`).join('')}</div>` : `<div class="ck-hint">Touche pour ouvrir les ${items.length} exercices</div>`}
+      <div class="ck-t"><b>${esc(group ? x.name : 'Fait')}</b>${x.dose ? `<div class="ck-dose">⏱ ${esc(x.dose)}</div>` : ''}${x.cue ? `<div class="ck-cue">${esc(x.cue)}</div>` : ''}</div></div>`).join('')}</div>` : `<div class="ck-hint">Touche pour ouvrir les ${items.length} exercices</div>`}
   </div>`;
 }
 function sessionEditor(host, d, onChange, opts = {}) {
@@ -942,6 +944,7 @@ function finishSession(d) {
     let t = tplOf(d.tpl) || S().templates.find(x => x.ex.length === ex.length && x.ex.every(id => ex.includes(id)));
     if (!t) { t = { id: 'tpl' + uid(), name: `Séance custom ${S().templates.length + 1}`, ex, created: d.date }; S().templates.push(t); tplMsg = `Mémorisée : « ${t.name} » (onglet Séance)`; }
     t.used = d.date; sess.tpl = t.id;
+    if (t.targets) entries.forEach(en => delete t.targets[en.ex]);
   }
   if (d.startedAt) Object.assign(sess, { start: hhmm(d.realStart || d.startedAt), end: hhmm(end), dur: Math.max(1, Math.round((end - d.startedAt) / 60000)) });
   S().sessions.push(sess);

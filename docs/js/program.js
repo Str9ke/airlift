@@ -89,7 +89,7 @@ export const EXTRA = [
   { id: 'wu-pompes', name: 'Pompes faciles', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '8-10 reps', cue: 'Gainage serré · sur les genoux ou mains surélevées si besoin, loin de l\'échec' },
   { id: 'wu-scap', name: 'Scapular pull-ups (omoplates à la barre)', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '8 reps', cue: 'Suspendu bras tendus · tire les épaules vers le bas et en arrière sans plier les coudes, 1 s en haut · prépare les tractions' },
   { id: 'wu-approche', name: 'Séries d\'approche du 1er exercice', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '2 séries : ~50 % × 6-8 puis ~75 % × 3-5', cue: 'Avec le 1er exercice de la séance (tractions : assistées ou au poids du corps) · légères, rapides, sans fatigue · récup 1 min' },
-  { id: 'echauffement', name: 'Échauffement (warm-up)', category: 'Mobilité', equip: 'bodyweight', type: 'group', days: [], sets: 1, dose: '9 exercices · ≈ 12 min', items: ['wu-cardio', 'wu-hanches', 'wu-worlds', 'wu-bras', 'wu-band', 'wu-squat', 'wu-pompes', 'wu-scap', 'wu-approche'], cue: 'Général puis spécifique : cardio léger, mobilité dynamique, activation, puis séries d\'approche · coche au fur et à mesure' },
+  { id: 'echauffement', name: 'Warm-up', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '', cue: '' },
   { id: 'box-jump', name: 'Box jump', category: 'Jambes', equip: 'bodyweight', type: 'bw_load', days: [], sets: 1, repMin: 10, repMax: 10, fixedReps: true,
     cue: 'Explosif : hanches en arrière + élan des bras, saute sur la box, réception douce en squat partiel, genoux dans l\'axe · redescends en marchant (pas en sautant) · chaque saut de qualité, pas de fatigue · lest en kg (0 = sans)' },
   // ---- étirements rapides de fin de séance
@@ -121,7 +121,7 @@ export const EXTRA = [
     cue: 'Pied sur une table ou un banc (hauteur de hanche), jambe d\'appui tendue, dos long · descends le buste vers le genou dans plusieurs angles : droit devant, vers l\'intérieur (épaule opposée vers le genou), vers l\'extérieur · une hanche à la fois' },
   { id: 'mh-boardoff-assis', name: 'Board-off assis au sol avec la planche', category: 'Board-off', equip: 'bodyweight', type: 'reps', days: [], sets: 2, repMin: 6, repMax: 12,
     cue: 'Assis au sol, mains derrière toi, pieds dans les straps · ramène les genoux à la poitrine en décollant la planche (compression de hanche, comme le tuck du board-off), tiens 2-3 s, repose sans à-coup · renforcement : en tout dernier' },
-  { id: 'mobilite-hanche', name: 'Mobilité de hanche (avant board-off)', category: 'Mobilité', equip: 'bodyweight', type: 'group', days: [], sets: 1, dose: '7 exercices · ≈ 12 min',
+  { id: 'mobilite-hanche', name: 'Mobilité de hanche', category: 'Mobilité', equip: 'bodyweight', type: 'group', days: [], sets: 1, dose: '7 exercices · ≈ 12 min',
     items: ['mh-deep-squat', 'mh-ds-coudes', 'mh-ds-transfert', 'mh-ds-rotation', 'mh-90-90', 'mh-grenouille', 'mh-pied-table'],
     cue: 'Bloc d\'ouverture de hanche juste avant le board-off · coche chaque exercice quand il est fait' },
   { id: 'mollets-pointe', name: 'Montée sur la pointe des pieds', category: 'Jambes', equip: 'db2', type: 'load', days: ['dim'], sets: 2, repMin: 10, repMax: 15, cue: 'Avant du pied sur une marche, talons dans le vide · descends en étirement 1 s, monte le plus haut possible, tiens 1 s · charge = haltère par main (0 = sans charge)' },

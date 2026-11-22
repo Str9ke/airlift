@@ -178,6 +178,29 @@ MIGRATIONS.push({ id: '2026-11-22-echauffement', run(st) {
   if (t && !t.ex.includes('echauffement')) t.ex.unshift('echauffement'); // en tout début
 } });
 
+MIGRATIONS.push({ id: '2026-11-22-custom1-v2', run(st) {
+  // warm-up : une simple ligne à cocher (sans le détail des exercices)
+  const wu = st.exercises.find(x => x.id === 'echauffement');
+  if (wu) { Object.assign(wu, { name: 'Warm-up', type: 'check', dose: '', cue: '' }); delete wu.items; }
+  const mh = st.exercises.find(x => x.id === 'mobilite-hanche'); if (mh) mh.name = mh.name.replace(/ \(avant board-off\)$/, '');
+  const t = (st.templates || []).find(x => x.ex.includes('mobilite-hanche')) || (st.templates || []).find(x => /custom 1$/i.test(x.name));
+  if (!t) return;
+  // ordre de la séance du 22/11, mobilité de hanche puis warm-up en tout début, jambes avant le board-off,
+  // exercices non faits ce jour-là gardés, board-off assis puis box jump en dernier
+  const ORDER = ['mobilite-hanche', 'echauffement', 'tractions', 'dips', 'trapeze-moyen-incline', 'psoas-march', 'mollets-pointe', 'developpe-couche', 'squat', 'deadlift',
+    'harnais-planche', 'deltoide-lateral', 'triceps', 'deltoide-anterieur', 'curl-biceps-incline', 'tenue-barre-1-main', 'releve-jambes-banc-45', 'strap-finding-drill',
+    'iso-deltoide-90', 'hanging-leg-raises', 'compression-pike', 'tirage-vertical-poulie'];
+  const LAST = ['mh-boardoff-assis', 'box-jump'];
+  const has = id => st.exercises.some(x => x.id === id);
+  const others = t.ex.filter(id => !ORDER.includes(id) && !LAST.includes(id));
+  t.ex = [...ORDER, ...others, ...LAST].filter(has);
+  const SETS = { tractions: 2, dips: 2, 'trapeze-moyen-incline': 1, 'psoas-march': 2, 'mollets-pointe': 1, 'developpe-couche': 1, squat: 1, deadlift: 1, 'harnais-planche': 1,
+    'deltoide-lateral': 1, triceps: 2, 'deltoide-anterieur': 1, 'curl-biceps-incline': 2, 'tenue-barre-1-main': 1, 'releve-jambes-banc-45': 1, 'strap-finding-drill': 1,
+    'iso-deltoide-90': 1, 'hanging-leg-raises': 1, 'compression-pike': 1, 'mh-boardoff-assis': 2, 'box-jump': 1 };
+  t.sets = { ...(t.sets || {}), ...SETS };
+  t.targets = {}; // charges et reps : calculées automatiquement sur la dernière séance (progression comprise)
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'custom-memo-2026-11-20', run(st) {

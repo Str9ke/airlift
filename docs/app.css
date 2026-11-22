@@ -480,3 +480,7 @@ body.in-session .timer-bar b { font-size: 20px; }
 .pause-card { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); text-align: center; margin-bottom: 10px; }
 .pause-t { font-size: 18px; font-weight: 800; color: var(--gold); }
 #l-editor.is-paused { opacity: .45; pointer-events: none; filter: grayscale(.4); }
+
+.tb-pause svg, .pause-t svg, #l-resume svg { vertical-align: -3px; }
+.tb-pause { display: grid; place-items: center; }
+.te-f input::placeholder { color: var(--gold); font-weight: 700; opacity: 1; }
