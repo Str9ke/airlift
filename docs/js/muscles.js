@@ -89,6 +89,7 @@ export const EX_MUSCLES = {
   'mobilite-hanche': M('adducteurs fessiers psoas'), 'mh-deep-squat': M('adducteurs fessiers', 'quadri'), 'mh-ds-coudes': M('adducteurs'),
   'mh-ds-transfert': M('adducteurs fessiers'), 'mh-ds-rotation': M('obliques adducteurs', 'fessiers'), 'mh-90-90': M('fessiers', 'adducteurs'),
   'mh-grenouille': M('adducteurs'), 'mh-pied-table': M('fessiers ischios'), 'mh-boardoff-assis': M('psoas abdos'), 'copenhagen-plank': M('adducteurs', 'obliques abdos'),
+  'mh-ds-genoux': M('fessiers adducteurs'), 'mh-grenouille-pied': M('fessiers', 'adducteurs'), 'rot-interne-hanche': M('fessiers', 'adducteurs'),
   // échauffement
   'echauffement': M('quadri fessiers', 'dorsaux pecs'), 'wu-cardio': M('quadri'), 'wu-hanches': M('psoas fessiers'), 'wu-worlds': M('psoas adducteurs'), 'wu-bras': M('delt_l delt_a'), 'wu-band': M('delt_p rhomb'), 'wu-squat': M('quadri fessiers'), 'wu-pompes': M('pecs triceps'), 'wu-scap': M('dorsaux rhomb'), 'wu-approche': M('dorsaux biceps'),
   // étirements de fin de séance

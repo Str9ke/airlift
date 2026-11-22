@@ -2,7 +2,7 @@
 // - Réseau d'abord pour tout le code : en ligne, tu as TOUJOURS la dernière version publiée.
 // - Cache en secours : hors ligne, l'app fonctionne avec la dernière version téléchargée.
 // - Photos d'exercices du catalogue : cache d'abord (elles ne changent jamais).
-const VERSION = '1.18.0';
+const VERSION = '1.19.0';
 const CACHE = 'airlift-' + VERSION;
 const IMG_CACHE = 'airlift-img';
 const ASSETS = ['./', 'index.html', 'app.css?v=' + VERSION, 'js/app.js?v=' + VERSION, 'js/store.js', 'js/calc.js', 'js/charts.js', 'js/program.js', 'js/media.js', 'js/sync.js', 'js/muscles.js', 'js/gear.js',

@@ -221,6 +221,25 @@ MIGRATIONS.push({ id: '2026-11-23-copenhagen', run(st) {
   t.sets = { ...(t.sets || {}), 'copenhagen-plank': 2 };
 } });
 
+MIGRATIONS.push({ id: '2026-11-23-rotation-interne', run(st) {
+  ['mh-ds-genoux', 'mh-grenouille-pied', 'rot-interne-hanche'].forEach(id => { const p = EXTRA.find(x => x.id === id); if (p) addIfMissing(st, p, false); });
+  // grenouille : la levée de pied devient un exercice à part
+  const gr = st.exercises.find(x => x.id === 'mh-grenouille'), grP = EXTRA.find(x => x.id === 'mh-grenouille');
+  if (gr && grP) Object.assign(gr, { name: grP.name, dose: grP.dose, cue: grP.cue });
+  const g = st.exercises.find(x => x.id === 'mobilite-hanche');
+  if (g && Array.isArray(g.items)) {
+    const ins = (id, after) => { if (g.items.includes(id)) return; const i = g.items.indexOf(after); g.items.splice(i >= 0 ? i + 1 : g.items.length, 0, id); };
+    ins('mh-ds-genoux', 'mh-ds-rotation'); ins('mh-grenouille-pied', 'mh-grenouille');
+    g.dose = `${g.items.length} exercices · ≈ 15 min`;
+  }
+  const t = (st.templates || []).find(x => x.ex.includes('mobilite-hanche')) || (st.templates || []).find(x => /custom 1$/i.test(x.name));
+  if (t && !t.ex.includes('rot-interne-hanche')) {
+    const i = ['copenhagen-plank', 'deadlift'].map(id => t.ex.indexOf(id)).find(i => i >= 0) ?? -1, j = t.ex.indexOf('harnais-planche');
+    t.ex.splice(i >= 0 ? i + 1 : j >= 0 ? j : t.ex.length, 0, 'rot-interne-hanche');
+    t.sets = { ...(t.sets || {}), 'rot-interne-hanche': 2 };
+  }
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'duree-oubliee-2026-11-17', run(st) {
