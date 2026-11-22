@@ -16,6 +16,7 @@ export const GEAR_SVG = {
   collant: S('<path d="M12 6h16l-1 28h-5l-2-18-2 18h-5z" fill="#111827"/><path d="M12 9h16" stroke="#475569" stroke-width="2"/>'),
   cardio: S('<rect x="4" y="17" width="32" height="6" rx="3" fill="#1f2937"/><path d="M20 28s-7-4.5-7-9a3.5 3.5 0 0 1 7-1 3.5 3.5 0 0 1 7 1c0 4.5-7 9-7 9z" fill="#ef4444"/>'),
   gantstissu: S('<path d="M12 34V18l-2-6a2 2 0 0 1 4-1l2 5V7a2 2 0 0 1 4 0v8V5a2 2 0 0 1 4 0v10V7a2 2 0 0 1 4 0v14l1 13z" fill="#64748b"/><path d="M12 30h16M12 33h16" stroke="#94a3b8" stroke-width="1.5"/><path d="M15 22h10M15 26h10" stroke="#475569" stroke-width="1" stroke-dasharray="1.5 1.5"/>', '#ede9fe'),
+  ventolin: S('<path d="M15 7h9a2 2 0 0 1 2 2v13h-13V9a2 2 0 0 1 2-2z" fill="#3b82f6"/><path d="M13 22h13v4a2 2 0 0 1-2 2h-4v5h-7z" fill="#93c5fd"/><rect x="16" y="3" width="7" height="5" rx="1.5" fill="#1e3a8a"/>', '#dbeafe'),
   thermos: S('<rect x="14" y="10" width="12" height="24" rx="4" fill="#64748b"/><rect x="15" y="5" width="10" height="6" rx="2" fill="#1f2937"/><path d="M14 16h12" stroke="#94a3b8" stroke-width="2"/><path d="M18 3q1 2 0 3M22 3q1 2 0 3" stroke="#94a3b8" stroke-width="1.4" fill="none"/>', '#fef3c7'),
 };
 
@@ -24,16 +25,21 @@ export const PACKS = {
   run: {
     title: 'Go Run', emoji: '🏃',
     groups: [
-      { title: 'Équipement', items: [
-        ['eau', 'Bouteille d\'eau', '💧'], ['chaussettes', 'Chaussettes', '🧦'], ['tshirt-noir', 'T-shirt noir (froid)', '👕'],
-        ['collant', 'Collant de jambes (froid)', 'collant'], ['pantalon', 'Pantalon', '👖'], ['goretex', 'Veste Gore-Tex', '🧥'],
-        ['bonnet', 'Bonnet', 'bonnet'], ['frontale', 'Lampe frontale (chargée)', '🔦'], ['montre', 'Montre (chargée)', '⌚'],
-        ['cardio', 'Ceinture cardio', 'cardio'], ['ecouteurs', 'Écouteurs', '🎧'], ['portefeuille', 'Portefeuille', '👛'],
-        ['gants', 'Gants', '🧤'], ['baskets', 'Mes baskets', '👟'],
+      { title: 'Sur moi', items: [
+        ['chaussettes', 'Chaussettes', '🧦'], ['tshirt-noir', 'T-shirt noir (froid)', '👕'], ['collant', 'Collant de jambes (froid)', 'collant'],
+        ['pantalon', 'Pantalon', '👖'], ['goretex', 'Veste Gore-Tex', '🧥'], ['tour-cou', 'Tour de cou', '🧣'], ['bonnet', 'Bonnet', 'bonnet'],
+        ['gants', 'Gants', '🧤'], ['frontale', 'Lampe frontale (chargée)', '🔦'], ['montre', 'Montre (chargée)', '⌚'],
+        ['cardio', 'Ceinture cardio', 'cardio'], ['ecouteurs', 'Écouteurs', '🎧'], ['baskets', 'Mes baskets', '👟'],
       ] },
-      { title: 'Rechange & après', items: [
-        ['baskets-r', 'Baskets de rechange', '👟'], ['slip-r', 'Slip de rechange', '🩲'], ['pantalon-r', 'Pantalon de rechange', '👖'],
-        ['tshirt-r', 'T-shirt de rechange', '👕'], ['tel', 'Téléphone chargé', '📱'], ['cafe', 'Café', '☕'], ['the', 'Thé', '🍵'],
+      { title: 'Dans les poches', items: [
+        ['ventolin', 'Ventolin', 'ventolin'], ['tel', 'Téléphone chargé', '📱'], ['cle', 'Clé de voiture', '🔑'], ['portefeuille', 'Portefeuille', '👛'],
+      ] },
+      { title: 'Rechange', items: [
+        ['baskets-r', 'Baskets de rechange', '👟'], ['chaussettes-r', 'Chaussettes de rechange', '🧦'], ['slip-r', 'Slip de rechange', '🩲'],
+        ['pantalon-r', 'Pantalon de rechange', '👖'], ['tshirt-r', 'T-shirt de rechange', '👕'],
+      ] },
+      { title: 'Boire & manger', items: [
+        ['cafe', 'Café / thé', '☕'], ['eau', "Bouteille d'eau", '💧'], ['fruit', 'Un fruit (kiwi ou orange)', '🥝'],
       ] },
     ],
   },
@@ -50,7 +56,7 @@ export const PACKS = {
       ] },
       { title: 'Ravito & divers', items: [
         ['eau', '2 bouteilles d\'eau', '💧'], ['thermos', 'Thermos de café', 'thermos'], ['mandarines', '2 mandarines', '🍊'],
-        ['shaker', 'Shaker protéiné', '🥤'], ['portefeuille', 'Portefeuille', '👛'],
+        ['shaker', 'Shaker protéiné', '🥤'], ['portefeuille', 'Portefeuille', '👛'], ['cle', 'Clé de voiture', '🔑'],
       ] },
     ],
   },

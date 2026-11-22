@@ -9,7 +9,7 @@ import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 import { PACKS, gearIcon } from './gear.js';
 
-export const APP_VERSION = '1.17.1';
+export const APP_VERSION = '1.17.2';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);

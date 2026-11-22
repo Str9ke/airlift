@@ -201,6 +201,16 @@ MIGRATIONS.push({ id: '2026-11-22-custom1-v2', run(st) {
   t.targets = {}; // charges et reps : calculées automatiquement sur la dernière séance (progression comprise)
 } });
 
+MIGRATIONS.push({ id: '2026-11-22-go-run-v2', run(st) {
+  // éléments ajoutés à la main → rangés dans la liste (on garde ce qui était coché)
+  const MAP = [[/^cl[eé] de voiture/i, 'cle'], [/^tour de cou/i, 'tour-cou'], [/^ventolin/i, 'ventolin'], [/^chaussettes de rechang/i, 'chaussettes-r']];
+  for (const k of ['run', 'kite']) {
+    const P = st.packs?.[k]; if (!P) continue;
+    P.extra = (P.extra || []).filter(x => { const m = MAP.find(([re, id]) => re.test(x.label.trim()) && (k === 'run' || id === 'cle')); if (!m) return true; if (P.done[x.id]) P.done[m[1]] = true; delete P.done[x.id]; return false; });
+    if (k === 'run') { if (P.done.the) P.done.cafe = true; delete P.done.the; }
+  }
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'custom-memo-2026-11-20', run(st) {
