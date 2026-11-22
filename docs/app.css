@@ -508,3 +508,13 @@ body.in-session .timer-bar b { font-size: 20px; }
 .wk-h { font-weight: 800; font-size: 13px; margin: 12px 0 4px; }
 .wk-l { font-size: 13px; display: grid; gap: 3px; }
 .wk-banner { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); margin-bottom: 12px; }
+
+/* ---------- configuration : bloc déployable */
+.te-grp [data-gx] { cursor: pointer; }
+.te-grp .ck-chev { font-size: 22px; color: var(--muted); transition: transform .2s; padding: 0 6px; }
+.te-grp .ck-chev.on { transform: rotate(90deg); }
+.te-items { display: grid; gap: 6px; margin: 8px 0 2px; }
+.te-it { display: flex; align-items: center; gap: 10px; text-align: left; padding: 6px 8px; border-radius: 10px; background: var(--card2); }
+.te-it .thumb { width: 52px; height: 36px; }
+.te-it b { display: block; font-size: 13px; }
+.te-it small { color: var(--accent); font-size: 12px; font-weight: 600; }

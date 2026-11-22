@@ -240,8 +240,23 @@ MIGRATIONS.push({ id: '2026-11-23-rotation-interne', run(st) {
   }
 } });
 
+MIGRATIONS.push({ id: '2026-11-23-abduction', run(st) {
+  const p = EXTRA.find(x => x.id === 'abduction-poulie'); if (p) addIfMissing(st, p, false);
+  const t = (st.templates || []).find(x => x.ex.includes('mobilite-hanche')) || (st.templates || []).find(x => /custom 1$/i.test(x.name));
+  if (t && !t.ex.includes('abduction-poulie')) {
+    const i = ['rot-interne-hanche', 'copenhagen-plank', 'deadlift'].map(id => t.ex.indexOf(id)).find(i => i >= 0) ?? -1, j = t.ex.indexOf('harnais-planche');
+    t.ex.splice(i >= 0 ? i + 1 : j >= 0 ? j : t.ex.length, 0, 'abduction-poulie');
+    t.sets = { ...(t.sets || {}), 'abduction-poulie': 2 };
+  }
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
+  { id: 'hlr-erreur-2026-11-22', run(st) {
+    // « Relevés de jambes suspendu 8 » saisi par erreur (confusion avec le relevé de jambes banc 45°, déjà noté) : pas fait ce jour-là
+    const s = st.sessions.find(x => x.id === 'ranmldiy03t' && x.date === '2026-11-22');
+    if (s) s.entries = s.entries.filter(en => !(en.ex === 'hanging-leg-raises' && en.sets.length === 1 && en.sets[0].r === 8));
+  } },
   { id: 'duree-oubliee-2026-11-17', run(st) {
     // séance du 17/11 restée ouverte (10:03 → 22:33) : la durée enregistrée est fausse → effacée
     for (const s of st.sessions) if (s.date === '2026-11-17' && s.dur >= 600) { delete s.dur; delete s.end; }

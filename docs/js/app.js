@@ -9,7 +9,7 @@ import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 import { PACKS, gearIcon } from './gear.js';
 
-export const APP_VERSION = '1.19.0';
+export const APP_VERSION = '1.20.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -734,6 +734,7 @@ const startTpl = t => startSession(null, t.ex.filter(id => getEx(id)), t.id);
 function tplEdit(t) {
   const w = { name: t.name, ex: t.ex.filter(id => getEx(id)), sets: { ...(t.sets || {}) }, targets: JSON.parse(JSON.stringify(t.targets || {})) };
   const setsOf = id => isCheck(getEx(id)) ? 0 : (w.sets[id] || getEx(id).sets || 2);
+  const openG = new Set(); // blocs déployés
   const sh = sheet(`<div class="sheet-head"><button class="icon-btn" data-back aria-label="Retour">${ICON.back}</button><h2>Configurer la séance</h2></div>
     <div class="field"><label>Nom</label><input id="te-name" value="${esc(t.name)}"></div>
     <div class="sub" id="te-sum"></div>
@@ -747,9 +748,11 @@ function tplEdit(t) {
     const list = $('#te-list', sh);
     list.innerHTML = w.ex.map(id => {
       const e = getEx(id), tg = w.targets[id] || {};
-      if (isCheck(e)) return `<div class="te-row" data-id="${id}"><div class="te-l1"><span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>${illuHTML(e, 'thumb')}
-        <div class="lx-t"><h3>${esc(e.name)}</h3><div class="mus">${esc(e.type === 'group' ? `${checkItems(e).map(x => x.name.replace(/^Deep squat : /, 'DS ')).join(' · ')}` : e.dose || '')}</div></div>
-        <button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div><div class="te-l2 te-ck">☑ ${esc(e.dose || 'à cocher')}</div></div>`;
+      if (isCheck(e)) { const grp = e.type === 'group', op = grp && openG.has(id);
+        return `<div class="te-row ${grp ? 'te-grp' : ''}" data-id="${id}"><div class="te-l1"><span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>${illuHTML(e, 'thumb')}
+        <div class="lx-t" ${grp ? 'data-gx' : ''}><h3>${esc(e.name)}</h3><div class="mus">${esc(grp ? `${checkItems(e).length} exercices · touche pour ${op ? 'refermer' : 'voir le détail'}` : e.dose || '')}</div></div>
+        ${grp ? `<span class="ck-chev ${op ? 'on' : ''}" data-gx>›</span>` : ''}<button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div><div class="te-l2 te-ck">☑ ${esc(e.dose || 'à cocher')}</div>
+        ${op ? `<div class="te-items">${checkItems(e).map((x, k) => `<button class="te-it" data-cillu="${x.id}">${illuHTML(x, 'thumb')}<span class="grow"><b>${k + 1}. ${esc(x.name)}</b><small>${esc(x.dose || '')}</small></span></button>`).join('')}</div>` : ''}</div>`; }
       const g = C.suggest(e), auto = g.sets[0] || {};
       const keys = e.type === 'time' ? ['t'] : e.type === 'reps' ? ['r'] : e.type === 'load_time' ? ['w', 't'] : ['w', 'r'];
       const lbl = { w: e.type === 'bw_load' ? 'lest' : e.type === 'assisted' ? 'assist.' : 'kg', r: 'reps', t: 'sec' };
@@ -766,6 +769,8 @@ function tplEdit(t) {
       const id = r.dataset.id;
       $$('.te-sets button', r).forEach(bt => bt.onclick = () => { w.sets[id] = Math.max(1, Math.min(10, setsOf(id) + +bt.dataset.d)); draw(); });
       $('[data-rm]', r).onclick = () => { w.ex = w.ex.filter(x => x !== id); draw(); };
+      $$('[data-gx]', r).forEach(g => g.onclick = () => { if (openG.has(id)) openG.delete(id); else openG.add(id); draw(); });
+      $$('[data-cillu]', r).forEach(b => b.onclick = () => showIllustration(getEx(b.dataset.cillu)));
       $$('.te-f input', r).forEach(inp => inp.oninput = () => { const o = w.targets[id] || (w.targets[id] = {}); if (inp.value === '') delete o[inp.dataset.k]; else o[inp.dataset.k] = +inp.value; if (!Object.keys(o).length) delete w.targets[id]; });
     });
     list._sortable?.destroy();

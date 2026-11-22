@@ -79,6 +79,8 @@ export const CATEGORIES = ['Board-off', 'Mobilité', 'Abdos', 'Dos', 'Pecs', 'É
 
 // Proposés hors programme (anciens exercices), à activer d'un tap.
 export const EXTRA = [
+  { id: 'abduction-poulie', name: 'Abduction de hanche debout (poulie)', category: 'Jambes', equip: 'machine', type: 'load', side: true, days: [], sets: 2, repMin: 8, repMax: 12,
+    cue: 'Debout de profil à la poulie basse, sangle à la cheville de la jambe éloignée de la poulie, main sur le montant · écarte la jambe sur le côté jusqu\'à ~30-40°, pointe de pied vers l\'avant (pas tournée vers l\'extérieur), buste droit sans pencher · 2 s en haut, retour en 3 s sans reposer le poids · la jambe d\'appui travaille aussi (bassin stable) · commence léger' },
   { id: 'rot-interne-hanche', name: 'Rotation interne de hanche assis (poulie)', category: 'Jambes', equip: 'machine', type: 'load', side: true, days: [], sets: 2, repMin: 8, repMax: 12,
     cue: 'Assis au bord d\'un banc, genou à 90°, cuisse immobile (serviette roulée sous la cuisse) · poulie basse ou élastique accroché à la cheville, qui tire le pied vers l\'autre jambe · fais partir le pied vers l\'extérieur : le fémur tourne vers l\'intérieur · 2 s en fin d\'amplitude, retour en 3 s · le bassin ne bouge pas, la fesse ne décolle pas · dernière rep : tiens 10 s au bout · commence léger (2-5 kg)' },
   { id: 'copenhagen-plank', name: 'Copenhagen plank (adducteurs)', category: 'Jambes', equip: 'bodyweight', type: 'time', side: true, days: [], sets: 2, timeMin: 15, timeMax: 30,
