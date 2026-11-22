@@ -9,7 +9,7 @@ import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 import { PACKS, gearIcon } from './gear.js';
 
-export const APP_VERSION = '1.17.0';
+export const APP_VERSION = '1.17.1';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -713,7 +713,7 @@ function tplEdit(t) {
       if (isCheck(e)) return `<div class="te-row" data-id="${id}"><div class="te-l1"><span class="drag" aria-label="Glisser pour déplacer">${ICON.grip}</span>${illuHTML(e, 'thumb')}
         <div class="lx-t"><h3>${esc(e.name)}</h3><div class="mus">${esc(e.type === 'group' ? `${checkItems(e).map(x => x.name.replace(/^Deep squat : /, 'DS ')).join(' · ')}` : e.dose || '')}</div></div>
         <button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div><div class="te-l2 te-ck">☑ ${esc(e.dose || 'à cocher')}</div></div>`;
-      const auto = C.suggest(e).sets[0] || {};
+      const g = C.suggest(e), auto = g.sets[0] || {};
       const keys = e.type === 'time' ? ['t'] : e.type === 'reps' ? ['r'] : e.type === 'load_time' ? ['w', 't'] : ['w', 'r'];
       const lbl = { w: e.type === 'bw_load' ? 'lest' : e.type === 'assisted' ? 'assist.' : 'kg', r: 'reps', t: 'sec' };
       const fld = k => `<label class="te-f"><input type="number" inputmode="${k === 'w' ? 'decimal' : 'numeric'}" step="${k === 'w' ? '0.25' : '1'}" data-k="${k}" data-lbl="${esc(e.name)} · objectif ${k === 'w' ? unitW(e) : k === 't' ? 'secondes' : 'reps'}" value="${tg[k] ?? ''}" placeholder="${auto[k] ?? ''}"><span>${lbl[k]}</span></label>`;
@@ -722,7 +722,7 @@ function tplEdit(t) {
         <div class="lx-t"><h3>${esc(e.name)}</h3><div class="mus">${esc(MZ.musclesText(e))}</div></div>
         <button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>
       <div class="te-l2"><div class="te-sets"><button data-d="-1" aria-label="Moins de séries">−</button><b>${setsOf(id)}</b><button data-d="1" aria-label="Plus de séries">+</button><span>séries</span></div>
-        ${keys.map(fld).join('<span class="te-x">×</span>')}</div></div>`; }).join('') || '<div class="empty">Aucun exercice.</div>';
+        ${keys.map(fld).join('<span class="te-x">×</span>')}</div>${g.why && !Object.keys(tg).length ? `<div class="te-why">${esc(g.why)}</div>` : ''}</div>`; }).join('') || '<div class="empty">Aucun exercice.</div>';
     const n = w.ex.reduce((a, id) => a + setsOf(id), 0);
     $('#te-sum', sh).textContent = `${w.ex.length} exercices · ${n} séries · glisse ⠿ pour changer l'ordre · valeurs en doré = calculées sur ta dernière séance (progression comprise) · touche pour fixer une autre valeur`;
     $$('.te-row', list).forEach(r => {
@@ -793,10 +793,10 @@ function sessionEditor(host, d, onChange, opts = {}) {
       <div class="lx-t" data-fold><h3>${esc(e.name)}${nx ? ' <span class="tag ss">⇄</span>' : ''}</h3>${MZ.musclesText(e) ? `<div class="mus">${esc(MZ.musclesText(e))}</div>` : ''}</div>
       <span class="lx-sp">${sparkline(prev.slice(-3).map(h => h.perf), { w: 44, h: 18 })}</span><button class="mini-btn" data-rm aria-label="Retirer">${ICON.x}</button></div>`;
     if (folded) return `<div class="log-ex done folded" data-ei="${ei}">${head}<div class="lx-sum">✓ ${esc(C.fmtEntry(e, { sets: en.sets }))}</div></div>`;
-    const info = [last ? `Dernière ${fdate(last.date).replace(/ \d{4}$/, '')} : ${C.fmtEntry(e, last.entry)}` : 'Première fois : note ta charge de départ', last && sg.note ? `${sg.manual ? '✎' : '▲'} ${sg.note}` : ''].filter(Boolean).join(' · ');
+    const info = [last ? `Dernière ${fdate(last.date).replace(/ \d{4}$/, '')} : ${C.fmtEntry(e, last.entry)}` : 'Première fois : note ta charge de départ', last && sg.note && !sg.why ? `${sg.manual ? '✎' : '▲'} ${sg.note}` : ''].filter(Boolean).join(' · ');
     return `<div class="log-ex ${done ? 'done' : ''}" data-ei="${ei}">${head}
       ${nx ? `<div class="lx-ss">⇄ enchaîne sans repos avec « ${esc(nx.name)} »</div>` : ''}
-      <div class="lx-info" data-info>${esc(info)}</div>
+      <div class="lx-info" data-info>${esc(info)}</div>${sg.why && !en.target ? `<div class="te-why">${esc(sg.why)}</div>` : ''}
       <div class="col-h ${time || repsOnly ? 'time' : ''}"><span>#</span>${time ? '<span>secondes</span>' : repsOnly ? '<span>reps</span>' : `<span>${unitW(e)}${e.side ? ' · par côté' : ''}</span><span>${k2 === 't' ? 'secondes' : 'reps'}</span>`}<span>✓</span></div>
       ${en.sets.map((s, si) => { const p = { ...(sg.sets[si] || sg.sets.at(-1) || {}), ...(en.target || {}) }; return `<div class="set-row ${time || repsOnly ? 'time' : ''}" data-si="${si}"><span class="n">${si + 1}</span>
         ${time ? `<input data-k="t" type="number" inputmode="numeric" value="${s.t ?? ''}" placeholder="${p.t ?? e.timeMin}">`

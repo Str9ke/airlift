@@ -484,3 +484,5 @@ body.in-session .timer-bar b { font-size: 20px; }
 .tb-pause svg, .pause-t svg, #l-resume svg { vertical-align: -3px; }
 .tb-pause { display: grid; place-items: center; }
 .te-f input::placeholder { color: var(--gold); font-weight: 700; opacity: 1; }
+
+.te-why { font-size: 11.5px; color: var(--gold); font-weight: 650; margin: 4px 0 0 2px; }
