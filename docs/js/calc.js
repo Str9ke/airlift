@@ -171,7 +171,7 @@ function jumpOf(e, w) {
 export function suggest(e, day = null) {
   if (e.plan && e.plan.manual && e.plan.sets?.length) return { sets: e.plan.sets, manual: true, note: e.plan.note || '' };
   const st = exStats(e.id);
-  const last = st.last;
+  const last = st.arr.filter(h => !h.session.deload).at(-1) || st.last;
   const n = (day && e.daySets?.[day]) || e.sets || 2;
   if (!last) return { sets: Array.from({ length: n }, () => ({})), note: 'Première séance : trouve ta charge de travail.' };
   const lastSets = last.entry.sets.filter(s => (s.r != null) || s.t != null);
@@ -191,35 +191,78 @@ export function suggest(e, day = null) {
       else out.push({ w, t: Math.min(e.timeMax, t + 5) });
       continue;
     }
+    const rir = s.rir; // reps en réserve notées (3 = « 3 ou plus »), undefined = non noté
+    const addR = rir === 0 ? 0 : rir >= 3 ? 2 : 1; // à l'échec : on consolide · 3+ en réserve : +2 reps
     if (e.type === 'reps' || inc === 0 || e.equip === 'band') {
       const r = s.r || e.repMin;
-      out.push({ r: Math.min(r + 1, Math.max(e.repMax, r)), w: s.w ?? undefined });
+      out.push({ r: Math.min(r + addR, Math.max(e.repMax, r)), w: s.w ?? undefined, ...(rir === 0 ? { hold: 1 } : rir >= 3 ? { fast: 1 } : {}) });
       continue;
     }
     const w = s.w ?? 0, r = s.r ?? e.repMin;
     if (e.fixedReps) { out.push({ w, r: e.repMax }); continue; } // explosif : qualité, pas de course aux reps
-    if (r >= UP_REPS) {
+    if (r >= UP_REPS || (rir >= 3 && r >= UP_REPS - 2)) {
       // 12 reps réussies à cette charge → +1 ou 2 kg ; reps = ce que permet la force visée (1RM estimé +1 %)
+      // 3+ reps en réserve : la charge monte d'un double cran (et dès 10 reps) ; la force est estimée sur reps + réserve
       up = true;
-      const step = jumpOf(e, w);
+      const step = jumpOf(e, w) * (rir >= 3 ? 2 : 1);
       const nw = e.type === 'assisted' ? Math.max(0, round(w - step, 0.5)) : round(w + step, 0.5);
-      const e1 = epley(effLoad(e, { w }, last.date), Math.min(r, 15)) * (1 + GAIN);
+      const e1 = epley(effLoad(e, { w }, last.date), Math.min(r + (rir || 0), 15)) * (1 + GAIN);
       const eff = effLoad(e, { w: nw }, last.date);
       const est = eff > 0 ? Math.floor(30 * (e1 / eff - 1)) : UP_REPS - 2;
-      out.push({ w: nw, r: Math.max(6, Math.min(UP_REPS - 1, est)), up: true, step, from: { w, r } });
+      out.push({ w: nw, r: Math.max(6, Math.min(UP_REPS - 1, est)), up: true, step, from: { w, r, rir } });
     } else {
-      out.push({ w, r: r + 1 });
+      out.push({ w, r: r + addR, ...(rir === 0 ? { hold: 1 } : rir >= 3 ? { fast: 1 } : {}) });
     }
   }
   // pourquoi l'objectif augmente : ce qui a été réussi la dernière fois
   const upS = out.find(x => x.up && x.from), dd = last.date.slice(8, 10) + '/' + last.date.slice(5, 7);
   const fw = x => `${e.type === 'bw_load' ? (x.w ? '+' + fmt(x.w) + ' kg' : 'PC') : e.type === 'assisted' ? '−' + fmt(x.w) + ' kg' : fmt(x.w) + ' kg'} × ${x.t != null ? fmt(x.t, 0) + ' s' : fmt(x.r, 0)}`;
-  const why = upS ? `↑ ${fw(upS.from)} réussi le ${dd} → ${fw(upS)}` : '';
-  const clean = out.map(({ step, from, ...x }) => x);
+  const rirT = x => x?.rir != null ? ` (${x.rir >= 3 ? '3+' : x.rir} en réserve)` : '';
+  const why = upS ? `↑ ${fw(upS.from)}${rirT(upS.from)} réussi le ${dd} → ${fw(upS)}` : '';
+  const clean = out.map(({ step, from, hold, fast, ...x }) => x);
   const st0 = out.find(x => x.up && x.step);
-  if (st0 && e.type !== 'load_time') return { sets: clean, why, note: `${fmtSet(e, st0.from)} réussi (${UP_REPS} reps) → ${e.type === 'assisted' ? 'retire' : 'ajoute'} ${fmt(st0.step)} kg${e.equip === 'db2' ? ' par haltère' : ''} et vise ${st0.r} reps (force estimée +${GAIN * 100} %).` };
+  if (st0 && e.type !== 'load_time') return deloadAdj(e, lastSets, n, { sets: clean, why, note: `${fmtSet(e, st0.from)}${rirT(st0.from)} réussi → ${e.type === 'assisted' ? 'retire' : 'ajoute'} ${fmt(st0.step)} kg${e.equip === 'db2' ? ' par haltère' : ''} et vise ${st0.r} reps (force estimée +${GAIN * 100} %).` });
+  if (!up && out.some(x => x.hold)) return deloadAdj(e, lastSets, n, { sets: clean, why: '', note: 'Dernière fois à l\'échec (0 en réserve) → mêmes reps, on consolide.' });
+  if (!up && out.some(x => x.fast)) return deloadAdj(e, lastSets, n, { sets: clean, why: '', note: 'Il te restait 3 reps ou plus → +2 reps.' });
   const note = up && e.type === 'load_time' ? `Durée max atteinte (${e.timeMax} s) → ajoute ${fmt(inc)} kg et repars à ${e.timeMin} s.` : up ? `Objectif atteint (${e.repMax} reps) → ${e.type === 'assisted' ? 'retire' : 'ajoute'} ${fmt(inc)} kg${e.equip === 'db2' ? ' par haltère (+' + fmt(inc * 2) + ' kg au total)' : e.equip === 'db2t' ? ' au total (+' + fmt(inc / 2) + ' kg par haltère)' : ''} sur les séries concernées.` : '';
-  return { sets: clean, note, why };
+  return deloadAdj(e, lastSets, n, { sets: clean, note, why });
+}
+
+// ---------------------------------------------------------------- semaine de décharge (proposée, jamais imposée)
+export const deloadActive = () => { const d = S().settings.deload; return d && d.to >= today() && d.from <= today() ? d : null; };
+/** Pendant une décharge : charge −10 %, mêmes reps que la dernière fois (pas de +1), durée −5 s. */
+function deloadAdj(e, lastSets, n, res) {
+  if (!deloadActive() || !lastSets.length) return res;
+  const inc = incOf(e) || 0.5;
+  const sets = Array.from({ length: n }, (_, i) => {
+    const s = lastSets[Math.min(i, lastSets.length - 1)];
+    const o = {};
+    if (s.w != null) o.w = !s.w ? s.w : e.type === 'assisted' ? round(s.w * 1.1 + inc, inc) : Math.max(0, Math.floor(s.w * 0.9 / inc) * inc);
+    if (s.r != null) o.r = s.r;
+    if (s.t != null) o.t = Math.max(e.timeMin || 5, s.t - 5);
+    return o;
+  });
+  return { sets, why: '', note: 'Semaine de décharge : charge −10 %, mêmes reps que la dernière fois, garde 2-3 reps en réserve.' };
+}
+/** Faut-il proposer une décharge ? → { reasons, stag } ou null */
+export function deloadAdvice() {
+  const st = S().settings, all = S().sessions;
+  if (!all.length || deloadActive()) return null;
+  if (st.deloadSnooze && today() < st.deloadSnooze) return null;
+  const since = [st.deload?.to, breaks().map(b => b.to).at(-1), all[0].date].filter(Boolean).sort().at(-1);
+  const recent = all.filter(x => x.date > since && !x.deload);
+  const weeks = daysBetween(since, today()) / 7;
+  const stag = [], prog = [];
+  for (const [id, arr0] of history().byEx) {
+    const arr = arr0.filter(h => h.date > since && !h.session.deload);
+    if (arr.length < 4 || daysBetween(arr.at(-1).date, today()) > 21) continue;
+    const before = Math.max(...arr.slice(0, -2).map(h => h.perf)), now = Math.max(...arr.slice(-2).map(h => h.perf));
+    (now > before * 1.005 ? prog : stag).push(getEx(id)?.name || id);
+  }
+  const reasons = [];
+  if (weeks >= 5 && recent.length >= 8) reasons.push(`${Math.floor(weeks)} semaines d'entraînement sans décharge (${recent.length} séances).`);
+  if (stag.length >= 3 && stag.length >= prog.length) reasons.push(`${stag.length} exercices sur ${stag.length + prog.length} ne progressent plus sur leurs 2 dernières séances : ${stag.slice(0, 5).join(', ')}${stag.length > 5 ? '…' : ''}.`);
+  return reasons.length ? { reasons, stag } : null;
 }
 
 export function fmtSet(e, s) {

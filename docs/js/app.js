@@ -9,7 +9,7 @@ import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 import { PACKS, gearIcon } from './gear.js';
 
-export const APP_VERSION = '1.17.2';
+export const APP_VERSION = '1.18.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -151,7 +151,7 @@ function renderProg(v) {
   const total = sc.at(-1)?.cum ?? 0;
   const archived = st.exercises.filter(e => !e.active && (!ui.archFilter || e.name.toLowerCase().includes(ui.archFilter.toLowerCase())))
     .map(e => ({ e, st: C.exStats(e.id) })).sort((a, b) => (b.st.last?.date || '').localeCompare(a.st.last?.date || ''));
-  v.innerHTML = `
+  v.innerHTML = `${weekBanner()}
     <div class="card hero">
       <div class="row">
         <div class="grow">
@@ -191,6 +191,7 @@ function renderProg(v) {
   const af = $('#arch-filter'); if (af) af.oninput = () => { ui.archFilter = af.value; const pos = af.selectionStart; render(); const n = $('#arch-filter'); n.focus(); n.setSelectionRange(pos, pos); };
   $('#fab-add').onclick = () => editExercise(null);
   $$('[data-pack]', v).forEach(b => b.onclick = () => openPack(b.dataset.pack));
+  const wb = $('[data-wkgo]', v); if (wb) wb.onclick = () => { ui.wk = +wb.dataset.wkgo; S().settings.weekSeen = wb.dataset.wkfrom; commit(); setTab('stats'); };
   $('#start-day').onclick = () => startSession(ui.day === 'all' ? null : ui.day);
   if (dr) { $('#dr-go').onclick = () => setTab('log'); $('#dr-del').onclick = () => deleteDraft(); }
   bindRows(v);
@@ -572,7 +573,9 @@ function startSession(day, ids = null, tpl = null) {
   const cur = loadDraft();
   if (cur) { setTab('log'); toast('Une séance est déjà en cours — termine-la ou supprime-la'); return; }
   const list = ids ? ids.map(getEx).filter(Boolean) : S().exercises.filter(e => e.active && (!day || e.days.includes(day))).sort((a, b) => a.order - b.order);
-  saveDraft({ id: uid(), date: today(), day, tpl: tpl || null, custom: !day, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => { if (isCheck(e)) return { ex: e.id, checks: {}, sets: [] }; const tg = tpl && tplOf(tpl)?.targets?.[e.id]; return { ex: e.id, ...(tg ? { target: { ...tg } } : {}), sets: Array.from({ length: (tpl && tplOf(tpl)?.sets?.[e.id]) || setsOn(e, day) }, () => ({})) }; }) });
+  const dl = !!C.deloadActive(); // décharge : ≈ −40 % de séries, objectifs fixés à la main ignorés
+  const nSets = n => dl && n >= 2 ? Math.max(1, Math.round(n * 0.6)) : n;
+  saveDraft({ id: uid(), date: today(), day, tpl: tpl || null, custom: !day, deload: dl || undefined, note: '', startedAt: Date.now(), lastSetAt: null, entries: list.map(e => { if (isCheck(e)) return { ex: e.id, checks: {}, sets: [] }; const tg = !dl && tpl && tplOf(tpl)?.targets?.[e.id]; return { ex: e.id, ...(tg ? { target: { ...tg } } : {}), sets: Array.from({ length: nSets((tpl && tplOf(tpl)?.sets?.[e.id]) || setsOn(e, day)) }, () => ({})) }; }) });
   setTab('log');
 }
 
@@ -582,12 +585,14 @@ function renderLog(v) {
     const last = S().sessions.at(-1);
     const td = todayDay();
     v.innerHTML = `<h1>Séance</h1><p class="sub">Choisis la séance du jour : le chrono démarre aussitôt. Les charges proposées tiennent compte de ta dernière fois et des incréments réels de chaque matériel.</p>
+      ${deloadCard()}
       <div class="menu">${DAYS_().map(x => `<button data-start="${x.id}" class="${td?.id === x.id ? 'today' : ''}"><div class="row"><span class="grow">${esc(x.label)}${td?.id === x.id ? ' <span class="tag">aujourd\'hui</span>' : ''}</span><span class="muted">${S().exercises.filter(e => e.active && e.days.includes(x.id)).length} exos ›</span></div></button>`).join('')}
       <button data-custom><div class="row"><span class="grow">Nouvelle séance personnalisée<br><small class="muted">tes exercices actuels, les anciens ou un nouveau</small></span><span class="muted">›</span></div></button></div>
       ${(S().templates || []).length ? `<h2>Mes séances custom</h2><div class="menu">${S().templates.map(t => `<div class="tpl-row"><button class="grow" data-tpl="${t.id}"><div class="row"><span class="grow"><b>${esc(t.name)}</b><br><small class="muted">${t.ex.length} exercices · ${esc(t.ex.map(id => getEx(id)?.name).filter(Boolean).slice(0, 4).join(', '))}${t.ex.length > 4 ? '…' : ''}${t.used ? ` · dernière ${fdate(t.used)}` : ''}</small></span><span class="muted">›</span></div></button><button class="tpl-go" data-tpl-go="${t.id}" aria-label="Commencer directement">▶</button></div>`).join('')}</div><p class="sub" style="margin-top:6px">Appuie sur une séance pour la configurer, ▶ pour la commencer tout de suite.</p>` : ''}
       ${last ? `<p class="sub" style="margin-top:16px">Dernière séance : ${fdate(last.date)} (il y a ${C.fmtDuration(daysBetween(last.date, today()))}).</p>` : ''}`;
     $$('[data-start]', v).forEach(b => b.onclick = () => startSession(b.dataset.start || null));
     $('[data-custom]', v).onclick = () => customSession();
+    bindDeload(v);
     $$('[data-tpl]', v).forEach(b => b.onclick = () => tplEdit(tplOf(b.dataset.tpl)));
     $$('[data-tpl-go]', v).forEach(b => b.onclick = () => startTpl(tplOf(b.dataset.tplGo)));
     return;
@@ -606,6 +611,7 @@ function renderLog(v) {
       <button class="btn sm primary" id="l-finish">Terminer</button>
     </div>
     ${paused ? `<div class="card pause-card"><div class="pause-t">${ICON.pause} Séance en pause</div><div class="sub" style="margin:2px 0 10px">depuis ${hhmm(d.pausedAt)} · <span data-since="${d.pausedAt}">${clock(d.pausedAt)}</span> · le chrono et le repos sont arrêtés</div><button class="btn primary block" id="l-resume">${ICON.play} Reprendre la séance</button></div>` : ''}
+    ${!paused && Date.now() - lastActivity(d) > 3 * 3600e3 ? `<div class="card idle-card"><div class="pause-t">⏰ Séance oubliée ?</div><div class="sub" style="margin:2px 0 10px">Rien n'a été noté depuis ${hhmm(lastActivity(d))}. Le chrono continue de tourner.</div><div class="grid2"><button class="btn" id="l-idle-ok">Je continue</button><button class="btn primary" id="l-idle-end">Terminer à ${hhmm(lastActivity(d) + 5 * 60e3)}</button></div></div>` : ''}
     <div id="l-editor" class="${paused ? 'is-paused' : ''}"></div>
     <button class="btn sm" id="l-add" style="margin:2px 0 10px">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Exercice</button>
     <div class="field"><label>Notes de séance</label><textarea id="l-note" rows="2" placeholder="Sensations, douleurs, conditions…">${esc(d.note)}</textarea></div>`;
@@ -644,11 +650,42 @@ function renderLog(v) {
   $('#l-note', v).oninput = ev => { d.note = ev.target.value; saveDraft(d); };
   $('#l-add', v).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push(isCheck(e) ? { ex: id, checks: {}, sets: [] } : { ex: id, sets: Array.from({ length: e.sets || 3 }, () => ({})) }); saveDraft(d); render(); setTimeout(() => $$('.log-ex').at(-1)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60); }, d.entries.map(en => en.ex));
   $('#l-finish', v).onclick = () => finishFlow(d);
+  const io = $('#l-idle-ok', v); if (io) io.onclick = () => { d.idleOk = Date.now(); saveDraft(d); render(); };
+  const ie = $('#l-idle-end', v); if (ie) ie.onclick = () => { d.endAt = lastActivity(d) + 5 * 60e3; saveDraft(d); finishFlow(d, false); };
 }
 
-// Terminer : on propose des étirements avant de clôturer
-function finishFlow(d) {
+// ---------------------------------------------------------------- semaine de décharge (simple proposition)
+function deloadCard() {
+  const on = C.deloadActive();
+  if (on) return `<div class="card dl-card on"><b>🔋 Semaine de décharge en cours</b><div class="sub" style="margin:4px 0 8px">Jusqu'au ${fdate(on.to)} : moins de séries (≈ −40 %), charges −10 %, mêmes reps que la dernière fois, garde 2-3 reps en réserve. Ensuite la progression repart de tes chiffres d'avant.</div><button class="btn sm" data-dl-stop>Arrêter la décharge</button></div>`;
+  const a = C.deloadAdvice(); if (!a) return '';
+  return `<div class="card dl-card"><b>🔋 Une semaine de décharge serait utile</b><ul class="sub dl-why">${a.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
+    <div class="sub" style="margin:0 0 10px">C'est une proposition : pendant 7 jours, ≈ −40 % de séries, charges −10 %, mêmes reps, loin de l'échec. Le corps récupère et la progression repart mieux ensuite.</div>
+    <div class="grid2"><button class="btn" data-dl-no>Pas maintenant</button><button class="btn primary" data-dl-yes>Faire la décharge</button></div></div>`;
+}
+function bindDeload(v) {
+  const st = S().settings, plus = n => { const x = toD(today()); x.setDate(x.getDate() + n); return C.iso(x); };
+  const y = $('[data-dl-yes]', v); if (y) y.onclick = () => { st.deload = { from: today(), to: plus(6) }; commit(); render(); toast('Décharge activée pour 7 jours'); };
+  const n = $('[data-dl-no]', v); if (n) n.onclick = () => { st.deloadSnooze = plus(7); commit(); render(); toast('Je te la reproposerai dans une semaine si besoin'); };
+  const x = $('[data-dl-stop]', v); if (x) x.onclick = () => { st.deload.to = C.iso(new Date(Date.now() - 864e5)); commit(); render(); toast('Décharge arrêtée'); };
+}
+
+// dernière activité notée (série, exercice terminé, case cochée…)
+const lastActivity = d => Math.max(d.startedAt || 0, d.lastSetAt || 0, d.idleOk || 0, ...d.entries.map(en => en.doneAt > 1e12 ? en.doneAt : 0));
+// Terminer : si rien n'a été noté depuis plus d'1 h, on propose de finir à l'heure de la dernière série ; puis étirements
+function finishFlow(d, askEnd = true) {
   if (!cleanEntries(d).length && !d.entries.some(en => en.checks && Object.values(en.checks).some(Boolean))) { toast('Aucune série remplie'); return; }
+  const la = lastActivity(d);
+  if (askEnd && !d.endAt && !d.pausedAt && Date.now() - la > 3600e3) {
+    const e5 = la + 5 * 60e3;
+    const q = sheet(`<h2 style="margin-top:4px">Heure de fin de la séance ?</h2>
+      <p class="sub">Rien n'a été noté depuis ${hhmm(la)} (il y a ${fmtMin(Math.round((Date.now() - la) / 60000))}). Tu as peut-être oublié de terminer la séance.</p>
+      <div class="menu" style="margin-top:10px"><button data-e="last"><b>Terminer à ${hhmm(e5)}</b><br><small class="muted">5 min après ta dernière série · durée ${fmtMin(Math.max(1, Math.round((e5 - d.startedAt) / 60000)))}</small></button>
+      <button data-e="now"><b>Terminer maintenant (${hhmm(Date.now())})</b><br><small class="muted">j'étais encore en train de m'entraîner</small></button></div>`);
+    $('[data-e=last]', q).onclick = () => { d.endAt = e5; saveDraft(d); q.close(); finishFlow(d, false); };
+    $('[data-e=now]', q).onclick = () => { q.close(); finishFlow(d, false); };
+    return;
+  }
   const q = sheet(`<h2 style="margin-top:4px">Des étirements avant de clôturer ?</h2>
     <p class="sub">Une petite liste rapide (≈ 30 s par étirement) : tu coches ceux que tu fais.</p>
     <div class="grid2" style="margin-top:14px"><button class="btn" data-no>Non, clôturer</button><button class="btn primary" data-yes>🧘 Oui, étirements</button></div>`);
@@ -784,6 +821,7 @@ function sessionEditor(host, d, onChange, opts = {}) {
     const st = C.exStats(e.id);
     const sg = suggest ? C.suggest(e, d.day) : { sets: [] };
     const time = e.type === 'time', repsOnly = e.type === 'reps', k2 = e.type === 'load_time' ? 't' : 'r';
+    const rirOk = live && ['load', 'bw_load', 'assisted', 'reps'].includes(e.type) && !e.fixedReps;
     const prev = st.arr.filter(h => h.session.id !== d.id);
     const last = prev.at(-1);
     const done = en.sets.length && en.sets.every(s => s.done);
@@ -802,7 +840,7 @@ function sessionEditor(host, d, onChange, opts = {}) {
         ${time ? `<input data-k="t" type="number" inputmode="numeric" value="${s.t ?? ''}" placeholder="${p.t ?? e.timeMin}">`
         : repsOnly ? `<input data-k="r" type="number" inputmode="numeric" value="${s.r ?? ''}" placeholder="${p.r ?? e.repMin}">`
         : `<input data-k="w" type="number" inputmode="decimal" step="0.25" value="${s.w ?? ''}" placeholder="${p.w ?? (e.type === 'bw_load' ? 0 : '')}"><input data-k="${k2}" type="number" inputmode="numeric" value="${s[k2] ?? ''}" placeholder="${p[k2] ?? (k2 === 't' ? e.timeMin : e.repMin)}">`}
-        <button class="chk ${s.done ? 'on' : ''}" data-chk aria-label="Série faite">${ICON.check}</button></div>${e.setNotes?.[si] ? `<div class="set-note">↗ ${esc(e.setNotes[si])}</div>` : ''}`; }).join('')}
+        <button class="chk ${s.done ? 'on' : ''}" data-chk aria-label="Série faite">${ICON.check}</button></div>${rirOk ? `<div class="rir-row ${s.done ? 'show' : ''}" data-rir="${si}"><span>Reps en réserve</span>${[0, 1, 2, 3].map(n => `<button class="${s.rir === n ? 'on' : ''}" data-v="${n}">${n === 3 ? '3+' : n}</button>`).join('')}</div>` : ''}${e.setNotes?.[si] ? `<div class="set-note">↗ ${esc(e.setNotes[si])}</div>` : ''}`; }).join('')}
       <div class="lx-foot"><button class="lnk" data-addset>+ série</button>${en.sets.length > 1 ? '<button class="lnk" data-delset>− série</button>' : ''}<span class="grow"></span><button class="lnk" data-plan>prochaine fois…</button></div>
     </div>`;
   }).join('') || '<div class="empty">Aucun exercice. Ajoute-en un.</div>';
@@ -841,6 +879,7 @@ function sessionEditor(host, d, onChange, opts = {}) {
         s.done = !s.done;
         if (s.done) $$('input', row).forEach(inp => { if (inp.value === '' && inp.placeholder !== '') { inp.value = inp.placeholder; s[inp.dataset.k] = +inp.placeholder; } });
         ev.currentTarget.classList.toggle('on', s.done);
+        $(`.rir-row[data-rir="${row.dataset.si}"]`, card)?.classList.toggle('show', !!s.done);
         const all = en.sets.every(x => x.done), was = !!en.doneAt;
         card.classList.toggle('done', all);
         if (live) { if (all && !en.doneAt) en.doneAt = Date.now(); if (!all) delete en.doneAt; }
@@ -851,6 +890,10 @@ function sessionEditor(host, d, onChange, opts = {}) {
         if (live && all && !was) { openDone.delete(en.ex); onDone && onDone(en); }
       };
     });
+    $$('.rir-row', card).forEach(rr => { const s = en.sets[+rr.dataset.rir]; $$('button', rr).forEach(b => b.onclick = () => {
+      const n = +b.dataset.v; if (s.rir === n) delete s.rir; else s.rir = n;
+      $$('button', rr).forEach(x => x.classList.toggle('on', +x.dataset.v === s.rir)); if (navigator.vibrate) navigator.vibrate(10); onChange();
+    }); });
     $('[data-addset]', card).onclick = () => { en.sets.push({}); delete en.doneAt; onChange(); redraw(); };
     const ds = $('[data-delset]', card); if (ds) ds.onclick = () => { en.sets.pop(); onChange(); redraw(); };
     $('[data-plan]', card).onclick = () => editPlan(getEx(en.ex));
@@ -922,7 +965,7 @@ function customSession(tpl = null) {
 }
 
 function cleanEntries(d) {
-  return d.entries.map(en => ({ ex: en.ex, sets: en.sets.filter(s => s.done || s.w != null || s.r != null || s.t != null).filter(s => s.r != null || s.t != null).map(s => { const o = {}; if (s.w != null) o.w = s.w; if (s.r != null) o.r = s.r; if (s.t != null) o.t = s.t; return o; }) })).filter(en => en.sets.length);
+  return d.entries.map(en => ({ ex: en.ex, sets: en.sets.filter(s => s.done || s.w != null || s.r != null || s.t != null).filter(s => s.r != null || s.t != null).map(s => { const o = {}; if (s.w != null) o.w = s.w; if (s.r != null) o.r = s.r; if (s.t != null) o.t = s.t; if (s.rir != null) o.rir = s.rir; return o; }) })).filter(en => en.sets.length);
 }
 
 function finishSession(d) {
@@ -931,11 +974,12 @@ function finishSession(d) {
   const nSt = checks.filter(id => id.startsWith('st-')).length, nMob = checks.length - nSt;
   if (!entries.length && !checks.length) { toast('Aucune série remplie'); return; }
   const before = C.sessionScores().at(-1)?.cum || 0;
-  if (d.pausedAt) { const dt = Date.now() - d.pausedAt; d.startedAt += dt; d.pausedTotal = (d.pausedTotal || 0) + dt; d.pausedAt = null; }
-  const end = Date.now();
+  const end = d.endAt || Date.now();
+  if (d.pausedAt) { const dt = Math.max(0, end - d.pausedAt); d.startedAt += dt; d.pausedTotal = (d.pausedTotal || 0) + dt; d.pausedAt = null; }
   const sess = { id: d.id, date: d.date, note: d.note, source: 'app', entries };
   const pauseMin = Math.round((d.pausedTotal || 0) / 60000); if (pauseMin) sess.pause = pauseMin;
   if (d.day) sess.day = d.day;
+  if (d.deload) sess.deload = true;
   if (checks.length) sess.checks = checks;
   let tplMsg = '';
   if (!d.day) {
@@ -975,6 +1019,56 @@ function finishSession(d) {
   render();
 }
 
+// ================================================================ BILAN DE LA SEMAINE
+const weekStart = off => { const x = toD(today()); x.setDate(x.getDate() - (x.getDay() + 6) % 7 - 7 * off); return C.iso(x); };
+const addDays = (dIso, n) => { const x = toD(dIso); x.setDate(x.getDate() + n); return C.iso(x); };
+function weekData(from) {
+  const to = addDays(from, 6);
+  const ss = S().sessions.filter(x => x.date >= from && x.date <= to);
+  const sets = ss.reduce((a, x) => a + x.entries.reduce((b, en) => b + en.sets.length, 0), 0);
+  const dur = ss.reduce((a, x) => a + (x.dur || 0), 0);
+  const checks = ss.flatMap(x => x.checks || []);
+  const H = C.history(), ids = new Set(ss.map(x => x.id));
+  const prs = [], ups = [], downs = [];
+  // un exercice = une ligne : meilleur de la semaine comparé à la dernière fois avant la semaine
+  for (const [id, arr] of H.byEx) {
+    const inW = arr.filter(h => ids.has(h.session.id)); if (!inW.length) continue;
+    const e = getEx(id), best = inW.reduce((m, h) => h.perf > m.perf ? h : m), before = arr.filter(h => h.date < from).at(-1);
+    const pr = inW.find(h => h.isPR) || inW.find(h => h.isSegPR);
+    if (pr) prs.push({ e, h: inW.filter(h => h.isPR || h.isSegPR).at(-1), abs: inW.some(h => h.isPR) });
+    if (before) { const pct = (best.perf / before.perf - 1) * 100; if (pct > 0.5) ups.push({ e, pct, h: best }); else if (pct < -3) downs.push({ e, pct, h: best }); }
+  }
+  prs.sort((x, y) => y.abs - x.abs);
+  return { from, to, ss, sets, dur, checks, prs, ups: ups.sort((a, b) => b.pct - a.pct), downs: downs.sort((a, b) => a.pct - b.pct), vol: MZ.volumeBetween(from, to) };
+}
+function weekCard() {
+  const off = ui.wk || 0, w = weekData(weekStart(off)), p = weekData(weekStart(off + 1));
+  const dlt = (a, b) => b ? `<small class="${a >= b ? 'delta up' : 'delta down'}">${a >= b ? '+' : ''}${fmt((a / b - 1) * 100, 0)} %</small>` : '';
+  const volFill = id => { const l = MZ.volLevel(w.vol.get(id)?.sets || 0, 'week'); return l ? { c: `var(--mzv${l})` } : { c: 'var(--mz-off)', cls: 'off' }; };
+  const forgot = MZ.MUSCLES.filter(m => !(w.vol.get(m.id)?.sets > 0));
+  const nMob = w.checks.filter(id => !id.startsWith('st-')).length, nSt = w.checks.length - nMob;
+  const lbl = off === 0 ? 'Cette semaine' : off === 1 ? 'La semaine dernière' : `Semaine du ${fdate(w.from).replace(/ \d{4}$/, '')}`;
+  return `<div class="card wk-card" id="wk"><div class="row"><button class="icon-btn" data-wk="1" aria-label="Semaine précédente">‹</button><div class="grow" style="text-align:center"><b>📊 Bilan · ${lbl}</b><div class="sub" style="margin:0">du ${fdate(w.from).replace(/ \d{4}$/, '')} au ${fdate(w.to)}</div></div><button class="icon-btn" data-wk="-1" ${off ? '' : 'disabled'} aria-label="Semaine suivante">›</button></div>
+    ${!w.ss.length ? '<div class="empty">Aucune séance cette semaine.</div>' : `
+    <div class="kpis wk-k"><div class="kpi"><b>${w.ss.length}</b><span>séance${w.ss.length > 1 ? 's' : ''} ${dlt(w.ss.length, p.ss.length)}</span></div><div class="kpi"><b>${w.sets}</b><span>séries ${dlt(w.sets, p.sets)}</span></div><div class="kpi"><b>${w.dur ? fmtMin(w.dur) : '–'}</b><span>d'entraînement</span></div></div>
+    ${w.prs.length ? `<div class="wk-h">🏆 Records</div><div class="wk-l">${w.prs.map(x => `<div><b>${esc(x.e.name)}</b> <span class="${x.abs ? 'pr-badge' : 'rep-badge'}">${x.abs ? 'absolu' : 'reprise'}</span> <span class="muted">${esc(C.fmtEntry(x.e, x.h.entry))}</span></div>`).join('')}</div>` : ''}
+    ${w.ups.length ? `<div class="wk-h">▲ En progrès (${w.ups.length})</div><div class="wk-l">${w.ups.slice(0, 6).map(x => `<div>${esc(x.e.name)} <b class="delta up">+${fmt(x.pct, 0)} %</b></div>`).join('')}</div>` : ''}
+    ${w.downs.length ? `<div class="wk-h">▼ En baisse (${w.downs.length})</div><div class="wk-l">${w.downs.slice(0, 4).map(x => `<div>${esc(x.e.name)} <b class="delta down">${fmt(x.pct, 0)} %</b></div>`).join('')}</div>` : ''}
+    <div class="wk-h">💪 Séries par muscle</div>${MZ.bodySVG(volFill, { small: true })}
+    <div class="mz-legend"><span><i style="background:var(--mz-off)"></i>0</span><span><i style="background:var(--mzv1)"></i>≤ ${MZ.VOL_STEPS.week[0]}</span><span><i style="background:var(--mzv2)"></i>≤ ${MZ.VOL_STEPS.week[1]}</span><span><i style="background:var(--mzv3)"></i>≤ ${MZ.VOL_STEPS.week[2]}</span><span><i style="background:var(--mzv4)"></i>&gt; ${MZ.VOL_STEPS.week[2]} séries</span></div>
+    ${forgot.length ? `<div class="sub" style="margin-top:6px"><span class="mz-off-tag">pas travaillés</span> ${esc(forgot.map(m => m.short).join(', '))}</div>` : '<div class="sub" style="margin-top:6px">Tous les muscles ont été travaillés ✓</div>'}
+    ${nMob || nSt ? `<div class="sub" style="margin-top:4px">${nMob ? `🧘 ${nMob} exercices de mobilité` : ''}${nMob && nSt ? ' · ' : ''}${nSt ? `🤸 ${nSt} étirements` : ''}</div>` : ''}`}
+  </div>`;
+}
+function bindWeek(v) { $$('[data-wk]', v).forEach(b => b.onclick = () => { ui.wk = Math.max(0, (ui.wk || 0) + +b.dataset.wk); render(); requestAnimationFrame(() => $('#wk')?.scrollIntoView({ block: 'start' })); }); }
+// le dimanche (semaine en cours) et le lundi (semaine écoulée) : « ton bilan est prêt »
+function weekBanner() {
+  const wd = new Date().getDay(); if (wd !== 0 && wd !== 1) return '';
+  const off = wd === 0 ? 0 : 1, from = weekStart(off);
+  if (S().settings.weekSeen === from || !S().sessions.some(x => x.date >= from && x.date <= addDays(from, 6))) return '';
+  return `<button class="card wk-banner" data-wkgo="${off}" data-wkfrom="${from}"><b>📊 Ton bilan de la semaine est prêt</b><span class="muted">séances, records, progrès, muscles travaillés ›</span></button>`;
+}
+
 // ================================================================ STATS
 function renderStats(v) {
   const sc = C.sessionScores();
@@ -985,7 +1079,7 @@ function renderStats(v) {
   const last30 = S().sessions.filter(s => daysBetween(s.date, today()) <= 30).length;
   const best = lv.slice(15).filter(x => x.n >= 4).reduce((m, x) => x.level > (m?.level ?? 0) ? x : m, null);
   const totalBreak = br.reduce((a, b) => a + b.days, 0);
-  v.innerHTML = `<h1>Statistiques</h1><p class="sub">${S().sessions.length} séances depuis ${S().sessions[0] ? fdate(S().sessions[0].date) : '—'} · ${br.length} pauses de plus de ${S().settings.breakDays} jours (${C.fmtDuration(totalBreak)} au total).</p>
+  v.innerHTML = `<h1>Statistiques</h1>${weekCard()}<p class="sub">${S().sessions.length} séances depuis ${S().sessions[0] ? fdate(S().sessions[0].date) : '—'} · ${br.length} pauses de plus de ${S().settings.breakDays} jours (${C.fmtDuration(totalBreak)} au total).</p>
     <div class="kpis">
       <div class="kpi"><b>${cl.level != null ? fmt(cl.level, 0) + ' %' : '–'}</b><span>Niveau programme vs records</span></div>
       <div class="kpi"><b>${fmt(sc.at(-1)?.cum ?? 0, 0)}</b><span>Points cumulés</span></div>
@@ -1003,6 +1097,7 @@ function renderStats(v) {
     <h2>Toutes les courbes 1RM</h2>
     <select id="s-ex">${S().exercises.map(e => ({ e, n: C.exStats(e.id).n })).filter(x => x.n > 1).sort((a, b) => (b.e.active - a.e.active) || b.n - a.n).map(x => `<option value="${x.e.id}">${x.e.active ? '● ' : ''}${esc(x.e.name)} (${x.n})</option>`).join('')}</select>
     <div class="card" style="margin-top:10px"><div id="c-ex"></div></div>`;
+  bindWeek(v);
   $$('#s-range button', v).forEach(b => b.onclick = () => { ui.statRange = b.dataset.r; saveUi(); render(); });
   $$('tr[data-ex]', v).forEach(r => r.onclick = () => openExercise(r.dataset.ex));
   requestAnimationFrame(() => {

@@ -88,7 +88,7 @@ export const EX_MUSCLES = {
   // mobilité de hanche (bloc avant board-off)
   'mobilite-hanche': M('adducteurs fessiers psoas'), 'mh-deep-squat': M('adducteurs fessiers', 'quadri'), 'mh-ds-coudes': M('adducteurs'),
   'mh-ds-transfert': M('adducteurs fessiers'), 'mh-ds-rotation': M('obliques adducteurs', 'fessiers'), 'mh-90-90': M('fessiers', 'adducteurs'),
-  'mh-grenouille': M('adducteurs'), 'mh-pied-table': M('fessiers ischios'), 'mh-boardoff-assis': M('psoas abdos'),
+  'mh-grenouille': M('adducteurs'), 'mh-pied-table': M('fessiers ischios'), 'mh-boardoff-assis': M('psoas abdos'), 'copenhagen-plank': M('adducteurs', 'obliques abdos'),
   // échauffement
   'echauffement': M('quadri fessiers', 'dorsaux pecs'), 'wu-cardio': M('quadri'), 'wu-hanches': M('psoas fessiers'), 'wu-worlds': M('psoas adducteurs'), 'wu-bras': M('delt_l delt_a'), 'wu-band': M('delt_p rhomb'), 'wu-squat': M('quadri fessiers'), 'wu-pompes': M('pecs triceps'), 'wu-scap': M('dorsaux rhomb'), 'wu-approche': M('dorsaux biceps'),
   // étirements de fin de séance
@@ -195,6 +195,21 @@ export function doneVolume(days = 28) {
     for (const en of s.entries) {
       const e = S().exercises.find(x => x.id === en.ex); if (!e) continue;
       const n = en.sets.length * k, m = muscleOf(e);
+      m.p.forEach(id => addTo(map, id, n, e, 'p'));
+      m.s.forEach(id => addTo(map, id, n / 2, e, 's'));
+    }
+  }
+  return map;
+}
+
+/** Séries faites par muscle entre deux dates incluses (bilan de la semaine). */
+export function volumeBetween(from, to) {
+  const map = new Map();
+  for (const s of S().sessions) {
+    if (s.date < from || s.date > to) continue;
+    for (const en of s.entries) {
+      const e = S().exercises.find(x => x.id === en.ex); if (!e) continue;
+      const n = en.sets.length, m = muscleOf(e);
       m.p.forEach(id => addTo(map, id, n, e, 'p'));
       m.s.forEach(id => addTo(map, id, n / 2, e, 's'));
     }

@@ -211,8 +211,22 @@ MIGRATIONS.push({ id: '2026-11-22-go-run-v2', run(st) {
   }
 } });
 
+MIGRATIONS.push({ id: '2026-11-23-copenhagen', run(st) {
+  const p = EXTRA.find(x => x.id === 'copenhagen-plank'); if (p) addIfMissing(st, p, false);
+  const t = (st.templates || []).find(x => x.ex.includes('mobilite-hanche')) || (st.templates || []).find(x => /custom 1$/i.test(x.name));
+  if (!t || t.ex.includes('copenhagen-plank')) return;
+  // avec les jambes, avant le board-off (pas de jambes après le board-off)
+  const i = t.ex.indexOf('deadlift'), j = t.ex.indexOf('harnais-planche');
+  t.ex.splice(i >= 0 ? i + 1 : j >= 0 ? j : t.ex.length, 0, 'copenhagen-plank');
+  t.sets = { ...(t.sets || {}), 'copenhagen-plank': 2 };
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
+  { id: 'duree-oubliee-2026-11-17', run(st) {
+    // séance du 17/11 restée ouverte (10:03 → 22:33) : la durée enregistrée est fausse → effacée
+    for (const s of st.sessions) if (s.date === '2026-11-17' && s.dur >= 600) { delete s.dur; delete s.end; }
+  } },
   { id: 'custom-memo-2026-11-20', run(st) {
     // les séances personnalisées faites avant la 1.10 deviennent « Séance custom 1, 2… »
     st.templates = Array.isArray(st.templates) ? st.templates : [];

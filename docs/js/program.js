@@ -79,6 +79,8 @@ export const CATEGORIES = ['Board-off', 'Mobilité', 'Abdos', 'Dos', 'Pecs', 'É
 
 // Proposés hors programme (anciens exercices), à activer d'un tap.
 export const EXTRA = [
+  { id: 'copenhagen-plank', name: 'Copenhagen plank (adducteurs)', category: 'Jambes', equip: 'bodyweight', type: 'time', side: true, days: [], sets: 2, timeMin: 15, timeMax: 30,
+    cue: 'Gainage latéral sur l\'avant-bras, la jambe du dessus posée sur un banc : c\'est elle qui te porte en serrant vers le bas · corps aligné, hanches hautes, la jambe du dessous pend sous le banc · niveau 1 = genou sur le banc (levier court), niveau 2 = cheville sur le banc (levier long) quand tu tiens 30 s · 1 min de récup, chaque côté' },
   // ---- échauffement (début de séance)
   { id: 'wu-cardio', name: 'Cardio léger progressif', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '5 min', cue: 'Vélo, rameur, corde à sauter ou footing · commence très facile et finis légèrement essoufflé (tu peux encore parler)' },
   { id: 'wu-hanches', name: 'Cercles de hanches + balancements de jambes', category: 'Mobilité', equip: 'bodyweight', type: 'check', days: [], sets: 1, dose: '10 par jambe, chaque sens', cue: 'Debout, tiens-toi à un support · grands cercles du genou vers l\'extérieur puis vers l\'intérieur, puis balancements avant-arrière et latéraux' },
