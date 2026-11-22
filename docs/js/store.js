@@ -273,6 +273,11 @@ MIGRATIONS.push({ id: '2026-11-23-knee-drop-pyramidal', run(st) {
   }
 } });
 
+MIGRATIONS.push({ id: '2026-11-23-90-90-pause', run(st) {
+  const e = st.exercises.find(x => x.id === 'mh-90-90'), p = EXTRA.find(x => x.id === 'mh-90-90');
+  if (e && p) Object.assign(e, { cue: p.cue, dose: p.dose });
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'hlr-erreur-2026-11-22', run(st) {
