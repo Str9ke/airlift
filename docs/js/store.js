@@ -172,6 +172,12 @@ MIGRATIONS.push({ id: '2026-11-23-box-jump', run(st) {
   if (t && !t.ex.includes('box-jump')) t.ex.push('box-jump'); // en tout dernier
 } });
 
+MIGRATIONS.push({ id: '2026-11-22-echauffement', run(st) {
+  EXTRA.filter(p => p.id.startsWith('wu-') || p.id === 'echauffement').forEach(p => addIfMissing(st, p, false));
+  const t = (st.templates || []).find(x => x.ex.includes('mobilite-hanche')) || (st.templates || []).find(x => /custom 1$/i.test(x.name));
+  if (t && !t.ex.includes('echauffement')) t.ex.unshift('echauffement'); // en tout début
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'custom-memo-2026-11-20', run(st) {

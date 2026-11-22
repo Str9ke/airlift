@@ -9,7 +9,7 @@ import * as sync from './sync.js';
 import * as MZ from './muscles.js';
 import { PACKS, gearIcon } from './gear.js';
 
-export const APP_VERSION = '1.15.0';
+export const APP_VERSION = '1.16.0';
 const DAYS_ = () => S().days;
 const todayDay = () => DAYS_().find(d => d.wd === new Date().getDay());
 const $ = (s, r = document) => r.querySelector(s);
@@ -163,7 +163,7 @@ function renderProg(v) {
       <div class="gauge"><i style="width:${Math.min(100, cl.level || 0)}%"></i></div>
       <div class="sub" style="margin:8px 0 0">${ongoing ? `Pause en cours : ${C.fmtDuration(ongoing.days)} depuis la dernière séance — reprise progressive conseillée.` : `${cl.rows.length} exercices du programme ont un historique. Il te reste <b>${fmt(100 - (cl.level || 100), 0)} %</b> à reconquérir en moyenne.`}</div>
     </div>
-    ${dr ? `<div class="card live-banner"><div class="row"><div class="grow"><b>Séance en cours</b><div class="sub" style="margin:2px 0 0">${esc(dayOf(dr.day)?.label || 'Séance libre')} · <span data-clock="${dr.startedAt || ''}">${clock(dr.startedAt)}</span></div></div><button class="btn sm" id="dr-del">Supprimer</button><button class="btn sm primary" id="dr-go">Reprendre</button></div></div>` : ''}
+    ${dr ? `<div class="card live-banner"><div class="row"><div class="grow"><b>Séance en cours</b><div class="sub" style="margin:2px 0 0">${esc(dayOf(dr.day)?.label || 'Séance libre')} · <span ${dr.pausedAt ? '' : `data-clock="${dr.startedAt || ''}"`}>${dr.pausedAt ? '⏸ ' : ''}${clock(dr.startedAt, dr.pausedAt || undefined)}</span></div></div><button class="btn sm" id="dr-del">Supprimer</button><button class="btn sm primary" id="dr-go">Reprendre</button></div></div>` : ''}
     <div class="go-row">${Object.entries(PACKS).map(([k, pk]) => { const n = packCount(k); return `<button class="go-btn" data-pack="${k}"><span class="go-e">${pk.emoji}</span><span class="grow"><b>${pk.title}</b><small>${n.done ? `${n.done}/${n.total} pris` : `${n.total} affaires`}</small></span><span class="muted">›</span></button>`; }).join('')}</div>
     <div class="chips" style="margin-top:12px">
       <button class="chip ${ui.day === 'all' ? 'on' : ''}" data-day="all">Tous (${active.length})</button>
@@ -547,7 +547,7 @@ function clock(start, end = Date.now()) {
 const hhmm = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const fmtMin = m => m >= 60 ? `${Math.floor(m / 60)} h ${pad(m % 60)}` : `${m} min`;
 setInterval(() => {
-  $$('[data-clock]').forEach(el => { const v = +el.dataset.clock; if (v) el.textContent = clock(v); });
+  $$('[data-clock], [data-since]').forEach(el => { const v = +(el.dataset.clock || el.dataset.since); if (v) el.textContent = clock(v); });
   const r = $('[data-rest]');
   if (r) {
     const v = +r.dataset.rest; if (!v) return;
@@ -594,14 +594,17 @@ function renderLog(v) {
   // exercices déjà terminés (avant cette version) : on garde leur ordre
   d.entries.forEach((en, i) => { if (!en.doneAt && en.sets.length && en.sets.every(x => x.done)) en.doneAt = 1 + i; });
   const name = d.day ? (dayOf(d.day)?.short || 'Séance') : (tplOf(d.tpl)?.name || 'Custom');
-  v.innerHTML = `<div class="timer-bar">
-      <div class="tb-main"><span class="tb-l">${esc(name)} · durée</span><b data-clock="${d.startedAt}">${clock(d.startedAt)}</b></div>
-      <div class="tb-rest"><span class="tb-l">Repos</span><b data-rest="${d.lastSetAt || ''}" data-goal="${d.restGoal || ''}">${d.lastSetAt ? clock(d.lastSetAt) : '–'}</b><span class="tb-s">${esc(d.restLabel || 'objectif ' + clock(1, 1 + (S().settings.restSec || 120) * 1000))}</span></div>
+  const paused = !!d.pausedAt;
+  v.innerHTML = `<div class="timer-bar ${paused ? 'paused' : ''}">
+      <div class="tb-main"><span class="tb-l">${esc(name)} · ${paused ? 'en pause' : 'durée'}</span><b ${paused ? '' : `data-clock="${d.startedAt}"`}>${clock(d.startedAt, paused ? d.pausedAt : undefined)}</b></div>
+      <div class="tb-rest"><span class="tb-l">Repos</span><b ${paused ? '' : `data-rest="${d.lastSetAt || ''}" data-goal="${d.restGoal || ''}"`}>${d.lastSetAt ? clock(d.lastSetAt, paused ? d.pausedAt : undefined) : '–'}</b><span class="tb-s">${esc(d.restLabel || 'objectif ' + clock(1, 1 + (S().settings.restSec || 120) * 1000))}</span></div>
       <span class="grow"></span>
       <button class="icon-btn tb-menu" id="l-menu" aria-label="Options de la séance">${ICON.dots}</button>
+      <button class="icon-btn tb-pause ${paused ? 'on' : ''}" id="l-pause" aria-label="${paused ? 'Reprendre' : 'Pause'}">${paused ? '▶' : '❚❚'}</button>
       <button class="btn sm primary" id="l-finish">Terminer</button>
     </div>
-    <div id="l-editor"></div>
+    ${paused ? `<div class="card pause-card"><div class="pause-t">⏸ Séance en pause</div><div class="sub" style="margin:2px 0 10px">depuis ${hhmm(d.pausedAt)} · <span data-since="${d.pausedAt}">${clock(d.pausedAt)}</span> · le chrono et le repos sont arrêtés</div><button class="btn primary block" id="l-resume">▶ Reprendre la séance</button></div>` : ''}
+    <div id="l-editor" class="${paused ? 'is-paused' : ''}"></div>
     <button class="btn sm" id="l-add" style="margin:2px 0 10px">${ICON.plus.replace('<svg', '<svg width="16" height="16" style="fill:none;stroke:currentColor;stroke-width:2.2"')} Exercice</button>
     <div class="field"><label>Notes de séance</label><textarea id="l-note" rows="2" placeholder="Sensations, douleurs, conditions…">${esc(d.note)}</textarea></div>`;
   const ed = $('#l-editor', v);
@@ -629,6 +632,13 @@ function renderLog(v) {
   const draw = () => sessionEditor(ed, d, () => saveDraft(d), { suggest: true, onSet, live: true, onDone });
   draw();
   $('#l-menu', v).onclick = () => sessionMenu(d, name);
+  const togglePause = () => {
+    if (d.pausedAt) { const dt = Date.now() - d.pausedAt; d.startedAt += dt; if (d.lastSetAt) d.lastSetAt += dt; d.pausedTotal = (d.pausedTotal || 0) + dt; d.pausedAt = null; toast('Séance reprise'); }
+    else { if (kp.open) kpClose(); d.realStart = d.realStart || d.startedAt; d.pausedAt = Date.now(); toast('Séance en pause'); }
+    saveDraft(d); render(); window.scrollTo(0, 0);
+  };
+  $('#l-pause', v).onclick = togglePause;
+  const rs = $('#l-resume', v); if (rs) rs.onclick = togglePause;
   $('#l-note', v).oninput = ev => { d.note = ev.target.value; saveDraft(d); };
   $('#l-add', v).onclick = () => pickExercise(id => { const e = getEx(id); d.entries.push(isCheck(e) ? { ex: id, checks: {}, sets: [] } : { ex: id, sets: Array.from({ length: e.sets || 3 }, () => ({})) }); saveDraft(d); render(); setTimeout(() => $$('.log-ex').at(-1)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60); }, d.entries.map(en => en.ex));
   $('#l-finish', v).onclick = () => finishFlow(d);
@@ -675,7 +685,7 @@ function sessionMenu(d, name) {
       <button id="sm-del"><div class="row"><span class="grow" style="color:var(--bad)">Supprimer la séance<br><small class="muted">rien ne sera enregistré</small></span></div></button>
     </div>`);
   $('#sm-date', sh).onchange = ev => { d.date = ev.target.value || d.date; saveDraft(d); };
-  $('#sm-restart', sh).onclick = () => { d.startedAt = Date.now(); saveDraft(d); sh.close(); render(); toast('Chrono remis à zéro'); };
+  $('#sm-restart', sh).onclick = () => { d.startedAt = Date.now(); d.pausedAt = null; delete d.realStart; delete d.pausedTotal; saveDraft(d); sh.close(); render(); toast('Chrono remis à zéro'); };
   $('#sm-del', sh).onclick = () => { sh.close(); deleteDraft(); };
 }
 
@@ -919,8 +929,10 @@ function finishSession(d) {
   const nSt = checks.filter(id => id.startsWith('st-')).length, nMob = checks.length - nSt;
   if (!entries.length && !checks.length) { toast('Aucune série remplie'); return; }
   const before = C.sessionScores().at(-1)?.cum || 0;
+  if (d.pausedAt) { const dt = Date.now() - d.pausedAt; d.startedAt += dt; d.pausedTotal = (d.pausedTotal || 0) + dt; d.pausedAt = null; }
   const end = Date.now();
   const sess = { id: d.id, date: d.date, note: d.note, source: 'app', entries };
+  const pauseMin = Math.round((d.pausedTotal || 0) / 60000); if (pauseMin) sess.pause = pauseMin;
   if (d.day) sess.day = d.day;
   if (checks.length) sess.checks = checks;
   let tplMsg = '';
@@ -931,7 +943,7 @@ function finishSession(d) {
     if (!t) { t = { id: 'tpl' + uid(), name: `Séance custom ${S().templates.length + 1}`, ex, created: d.date }; S().templates.push(t); tplMsg = `Mémorisée : « ${t.name} » (onglet Séance)`; }
     t.used = d.date; sess.tpl = t.id;
   }
-  if (d.startedAt) Object.assign(sess, { start: hhmm(d.startedAt), end: hhmm(end), dur: Math.max(1, Math.round((end - d.startedAt) / 60000)) });
+  if (d.startedAt) Object.assign(sess, { start: hhmm(d.realStart || d.startedAt), end: hhmm(end), dur: Math.max(1, Math.round((end - d.startedAt) / 60000)) });
   S().sessions.push(sess);
   entries.forEach(en => { const e = getEx(en.ex); if (e && e.plan?.manual) e.plan = null; });
   S()._rev = (S()._rev || 0) + 1;
@@ -945,7 +957,7 @@ function finishSession(d) {
       <div class="muted" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:12px">Séance enregistrée</div>
       <div class="summary-pts">${sc && sc.pts >= 0 ? '+' : ''}${sc ? sc.pts : 0} pts</div>
       ${tplMsg ? `<div class="sub" style="margin:4px 0">💾 ${esc(tplMsg)}</div>` : ''}
-      ${sess.dur ? `<div class="summary-time">⏱ ${fmtMin(sess.dur)} <span class="muted">(${sess.start} → ${sess.end})</span></div>` : ''}
+      ${sess.dur ? `<div class="summary-time">⏱ ${fmtMin(sess.dur)} <span class="muted">(${sess.start} → ${sess.end}${sess.pause ? ` · pause ${fmtMin(sess.pause)} non comptée` : ''})</span></div>` : ''}
       <div class="sub">Total : ${fmt((sc?.cum ?? before), 0)} pts · ${entries.length} exercices · facteur volume ×${fmt(sc?.vol ?? 1, 2)}</div>
       ${nMob ? `<div class="sub">🧘 Mobilité : ${nMob} exercice${nMob > 1 ? 's' : ''} coché${nMob > 1 ? 's' : ''}</div>` : ''}
       ${nSt ? `<div class="sub">🤸 Étirements : ${nSt}</div>` : ''}
