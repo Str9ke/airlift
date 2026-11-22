@@ -79,6 +79,10 @@ export const CATEGORIES = ['Board-off', 'Mobilité', 'Abdos', 'Dos', 'Pecs', 'É
 
 // Proposés hors programme (anciens exercices), à activer d'un tap.
 export const EXTRA = [
+  { id: 'knee-drop-leste', name: 'Genou qui tombe et remonte, lesté (assis, pied sur le banc)', category: 'Jambes', equip: 'db1', type: 'load', side: true, days: [], sets: 2, repMin: 8, repMax: 12,
+    cue: 'Assis sur un banc, un pied posé sur le banc à côté de toi, genou plié vers le haut · un poids coincé dans le pli du genou (haltère ou disque entre cuisse et mollet) · laisse descendre le genou vers l\'extérieur en 3 s, aussi bas que possible sans que le bassin bascule · remonte le genou à la verticale avec le poids (rotation interne + adduction, hanche fléchie) · 1 s en haut · buste droit, mains derrière toi en appui' },
+  { id: 'clam-pyramidal', name: 'Clamshell lesté, hanches peu fléchies (pyramidal)', category: 'Jambes', equip: 'db1', type: 'load', side: true, days: [], sets: 2, repMin: 10, repMax: 15,
+    cue: 'Couché sur le côté, hanches peu fléchies (30-45°, pas plus : au-delà de ~60° le pyramidal change d\'action), genoux à 90°, pieds collés · poids posé sur le genou du dessus (ou élastique au-dessus des genoux) · ouvre le genou du dessus sans faire rouler le bassin vers l\'arrière, 2 s en haut, redescends en 3 s · tu dois sentir le fond de la fesse, pas le devant de la hanche' },
   { id: 'abduction-poulie', name: 'Abduction de hanche debout (poulie)', category: 'Jambes', equip: 'machine', type: 'load', side: true, days: [], sets: 2, repMin: 8, repMax: 12,
     cue: 'Debout de profil à la poulie basse, sangle à la cheville de la jambe éloignée de la poulie, main sur le montant · écarte la jambe sur le côté jusqu\'à ~30-40°, pointe de pied vers l\'avant (pas tournée vers l\'extérieur), buste droit sans pencher · 2 s en haut, retour en 3 s sans reposer le poids · la jambe d\'appui travaille aussi (bassin stable) · commence léger' },
   { id: 'rot-interne-hanche', name: 'Rotation interne de hanche assis (poulie)', category: 'Jambes', equip: 'machine', type: 'load', side: true, days: [], sets: 2, repMin: 8, repMax: 12,

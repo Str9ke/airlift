@@ -260,6 +260,19 @@ MIGRATIONS.push({ id: '2026-11-23-rotation-interne-mobilite', run(st) {
   }
 } });
 
+MIGRATIONS.push({ id: '2026-11-23-knee-drop-pyramidal', run(st) {
+  ['knee-drop-leste', 'clam-pyramidal'].forEach(id => { const p = EXTRA.find(x => x.id === id); if (p) addIfMissing(st, p, false); });
+  const t = (st.templates || []).find(x => x.ex.includes('mobilite-hanche')) || (st.templates || []).find(x => /custom 1$/i.test(x.name));
+  if (!t) return;
+  let after = ['abduction-poulie', 'rot-interne-hanche', 'copenhagen-plank', 'deadlift'].find(id => t.ex.includes(id));
+  for (const id of ['knee-drop-leste', 'clam-pyramidal']) {
+    if (t.ex.includes(id)) { after = id; continue; }
+    const i = after ? t.ex.indexOf(after) : -1, j = t.ex.indexOf('harnais-planche');
+    t.ex.splice(i >= 0 ? i + 1 : j >= 0 ? j : t.ex.length, 0, id); after = id;
+    t.sets = { ...(t.sets || {}), [id]: 2 };
+  }
+} });
+
 // Corrections de données importées du tableur (appliquées une fois, quelle que soit la version de départ).
 const DATA_FIXES = [
   { id: 'hlr-erreur-2026-11-22', run(st) {
